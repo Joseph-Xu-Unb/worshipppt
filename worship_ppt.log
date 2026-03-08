@@ -1,0 +1,16 @@
+2026-01-25 22:51:00,743 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-01-25 22:51:01,302 - WARNING - Layout 'wishyouwell' not found.
+2026-01-25 22:51:01,304 - WARNING - Available layouts in template: ['cover', 'prepare', 'Slogan', '8_Custom Layout', '1_Ê¥²Í1', '9_Custom Layout', 'order', 'call_to_scripture', 'Hymn', 'theme_scripture', 'sermon', 'holy_communion_1', 'reminder', '13_Custom Layout', '1_Title and Vertical Text', '1_Custom Layout', 'Holy_communion_2', 'response', 'Offering', 'praise_prayer', 'intercessory_prayer', 'benediction', 'announcements', 'welcome', 'matters', 'Picture with Caption', '3_Title Slide', 'ode_to_the_Trinity', ' wish_you_well']
+2026-01-25 22:51:01,489 - INFO - PPT saved to E:/christ\Sunday_Worship_Generated.pptx
+2026-01-25 22:53:37,701 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-01-25 22:53:38,981 - WARNING - Layout 'wishyouwell' not found.
+2026-01-25 22:53:38,982 - WARNING - Available layouts in template: ['cover', 'prepare', 'Slogan', '8_Custom Layout', '1_Ê¥²Í1', '9_Custom Layout', 'order', 'call_to_scripture', 'Hymn', 'theme_scripture', 'sermon', 'holy_communion_1', 'reminder', '13_Custom Layout', '1_Title and Vertical Text', '1_Custom Layout', 'Holy_communion_2', 'response', 'Offering', 'praise_prayer', 'intercessory_prayer', 'benediction', 'announcements', 'welcome', 'matters', 'Picture with Caption', '3_Title Slide', 'ode_to_the_Trinity', ' wishyouwell']
+2026-01-25 22:53:39,165 - INFO - PPT saved to E:/christ\Sunday_Worship_Generated.pptx
+2026-01-25 22:55:33,775 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-01-25 22:55:33,986 - WARNING - Layout 'wishyouwell' not found.
+2026-03-07 19:51:16,303 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-03-07 19:51:16,912 - WARNING - Layout 'wishyouwell' not found.
+2026-03-07 19:51:16,912 - WARNING - Available layouts in template: ['cover', 'prepare', 'Slogan', '8_Custom Layout', '1_Ê¥²Í1', '9_Custom Layout', 'order', 'call_to_scripture', 'Hymn', 'theme_scripture', 'sermon', 'holy_communion_1', 'reminder', '13_Custom Layout', '1_Title and Vertical Text', '1_Custom Layout', 'Holy_communion_2', 'response', 'Offering', 'praise_prayer', 'intercessory_prayer', 'benediction', 'announcements', 'welcome', 'matters', 'Picture with Caption', '3_Title Slide', 'ode_to_the_Trinity', ' wishyouwell']
+2026-03-07 19:51:17,115 - INFO - PPT saved to E:/christ\Sunday_Worship_Generated.pptx
+2026-03-07 20:14:13,389 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-03-07 20:14:14,020 - INFO - PPT saved to E:/christ\Worship_2026-03-08.pptx
