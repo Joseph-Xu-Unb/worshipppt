@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# OS/editor
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Your generated/output files (example)
+worship_data_*.json
+*.log
