@@ -5,6 +5,10 @@ __pycache__/
 # Virtual environment
 venv/
 
+# JavaScript
+node_modules/
+dist/
+
 # OS/editor
 .vscode/
 .DS_Store
