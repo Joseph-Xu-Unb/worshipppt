@@ -16,7 +16,6 @@ Thumbs.db
 *:Zone.Identifier
 
 # Your generated/output files (example)
-data/
 output/
 worship_data_*.json
 *.log

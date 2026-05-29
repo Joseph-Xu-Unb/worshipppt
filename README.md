@@ -99,57 +99,6 @@ After a build, FastAPI serves the compiled frontend from `dist/` at:
 http://127.0.0.1:5000
 ```
 
-## GitHub Pages
-
-GitHub Pages can publish the React frontend, but it cannot run the FastAPI backend.
-For a working Pages deployment, host the backend separately and point the frontend at
-that backend during the build.
-
-### 1. Deploy the backend
-
-Deploy the FastAPI app somewhere that can serve:
-
-- `POST /api/validate`
-- `POST /api/generate`
-- `GET /downloads/template`
-- `GET /downloads/sample-json`
-- `GET /downloads/sample-ppt`
-
-The backend now enables CORS by default and exposes the `X-Worship-Warnings` header,
-so the Pages frontend can call it from another origin.
-
-### 2. Add the repository variable
-
-In GitHub, open `Settings -> Secrets and variables -> Actions -> Variables` and add:
-
-- `VITE_API_BASE_URL`
-
-Example value:
-
-```text
-https://your-backend.example.com
-```
-
-### 3. Enable GitHub Pages
-
-In `Settings -> Pages`:
-
-- set `Source` to `GitHub Actions`
-
-The repository includes [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml),
-which builds the frontend and deploys `dist/` whenever `main` is updated.
-
-### 4. Push to `main`
-
-Once the backend URL is configured, pushing to `main` will publish the frontend to:
-
-```text
-https://joseph-xu-unb.github.io/worshipppt/
-```
-
-The workflow uses the repository name as the Vite base path. If you later switch to a
-custom domain, update `VITE_BASE_PATH` in the workflow to `/`.
-
 ## Docker Compose
 
 Build and run the full app with Docker Compose:
