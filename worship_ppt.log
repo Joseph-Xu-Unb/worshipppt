@@ -1,0 +1,109 @@
+2026-01-25 22:51:00,743 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-01-25 22:51:01,302 - WARNING - Layout 'wishyouwell' not found.
+2026-01-25 22:51:01,304 - WARNING - Available layouts in template: ['cover', 'prepare', 'Slogan', '8_Custom Layout', '1_Ê¥²Í1', '9_Custom Layout', 'order', 'call_to_scripture', 'Hymn', 'theme_scripture', 'sermon', 'holy_communion_1', 'reminder', '13_Custom Layout', '1_Title and Vertical Text', '1_Custom Layout', 'Holy_communion_2', 'response', 'Offering', 'praise_prayer', 'intercessory_prayer', 'benediction', 'announcements', 'welcome', 'matters', 'Picture with Caption', '3_Title Slide', 'ode_to_the_Trinity', ' wish_you_well']
+2026-01-25 22:51:01,489 - INFO - PPT saved to E:/christ\Sunday_Worship_Generated.pptx
+2026-01-25 22:53:37,701 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-01-25 22:53:38,981 - WARNING - Layout 'wishyouwell' not found.
+2026-01-25 22:53:38,982 - WARNING - Available layouts in template: ['cover', 'prepare', 'Slogan', '8_Custom Layout', '1_Ê¥²Í1', '9_Custom Layout', 'order', 'call_to_scripture', 'Hymn', 'theme_scripture', 'sermon', 'holy_communion_1', 'reminder', '13_Custom Layout', '1_Title and Vertical Text', '1_Custom Layout', 'Holy_communion_2', 'response', 'Offering', 'praise_prayer', 'intercessory_prayer', 'benediction', 'announcements', 'welcome', 'matters', 'Picture with Caption', '3_Title Slide', 'ode_to_the_Trinity', ' wishyouwell']
+2026-01-25 22:53:39,165 - INFO - PPT saved to E:/christ\Sunday_Worship_Generated.pptx
+2026-01-25 22:55:33,775 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-01-25 22:55:33,986 - WARNING - Layout 'wishyouwell' not found.
+2026-03-07 19:51:16,303 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-03-07 19:51:16,912 - WARNING - Layout 'wishyouwell' not found.
+2026-03-07 19:51:16,912 - WARNING - Available layouts in template: ['cover', 'prepare', 'Slogan', '8_Custom Layout', '1_Ê¥²Í1', '9_Custom Layout', 'order', 'call_to_scripture', 'Hymn', 'theme_scripture', 'sermon', 'holy_communion_1', 'reminder', '13_Custom Layout', '1_Title and Vertical Text', '1_Custom Layout', 'Holy_communion_2', 'response', 'Offering', 'praise_prayer', 'intercessory_prayer', 'benediction', 'announcements', 'welcome', 'matters', 'Picture with Caption', '3_Title Slide', 'ode_to_the_Trinity', ' wishyouwell']
+2026-03-07 19:51:17,115 - INFO - PPT saved to E:/christ\Sunday_Worship_Generated.pptx
+2026-03-07 20:14:13,389 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-03-07 20:14:14,020 - INFO - PPT saved to E:/christ\Worship_2026-03-08.pptx
+2026-03-07 20:50:18,569 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-03-07 20:50:18,589 - ERROR - Generation failed
+Traceback (most recent call last):
+  File "E:\christ\worship.py", line 359, in execute
+    warnings = generate_worship_ppt(self.tpl_path, data, output_file)
+  File "E:\christ\worship.py", line 103, in generate_worship_ppt
+    if slide.shapes.title:
+NameError: name 'slide' is not defined
+2026-03-07 20:50:30,907 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-03-07 20:50:30,926 - ERROR - Generation failed
+Traceback (most recent call last):
+  File "E:\christ\worship.py", line 359, in execute
+    warnings = generate_worship_ppt(self.tpl_path, data, output_file)
+  File "E:\christ\worship.py", line 103, in generate_worship_ppt
+    if slide.shapes.title:
+NameError: name 'slide' is not defined
+2026-03-07 20:51:36,198 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-03-07 20:51:36,223 - ERROR - Generation failed
+Traceback (most recent call last):
+  File "E:\christ\worship.py", line 373, in execute
+    warnings = generate_worship_ppt(self.tpl_path, data, output_file)
+  File "E:\christ\worship.py", line 113, in generate_worship_ppt
+    if cover_slide.shapes.title:
+UnboundLocalError: local variable 'cover_slide' referenced before assignment
+2026-03-07 20:52:38,552 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-03-07 20:52:38,578 - ERROR - Generation failed
+Traceback (most recent call last):
+  File "E:\christ\worship.py", line 373, in execute
+    warnings = generate_worship_ppt(self.tpl_path, data, output_file)
+  File "E:\christ\worship.py", line 113, in generate_worship_ppt
+    if cover_slide.shapes.title:
+UnboundLocalError: local variable 'cover_slide' referenced before assignment
+2026-03-07 20:53:50,601 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 20:53:50,833 - WARNING - Layout 'praying' not found.
+2026-03-07 20:53:50,834 - WARNING - Layout '12_Custom Layout' not found.
+2026-03-07 20:53:50,834 - WARNING - Layout '10_Custom Layout' not found.
+2026-03-07 20:53:50,834 - WARNING - Layout '½áÊø' not found.
+2026-03-07 20:53:51,073 - INFO - PPT saved to Worship_2026-03-08_test.pptx
+2026-03-07 20:54:41,652 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 20:54:41,986 - INFO - PPT saved to Worship_2026-03-08_test2.pptx
+2026-03-07 20:56:45,630 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 20:56:45,958 - INFO - PPT saved to Worship_2026-03-08_oop.pptx
+2026-03-07 21:01:17,855 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:01:18,182 - INFO - PPT saved to Worship_2026-03-08_oop_gui_refactor.pptx
+2026-03-07 21:02:58,722 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:02:59,018 - INFO - PPT saved to Worship_2026-03-08_cleaned.pptx
+2026-03-07 21:06:26,418 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:06:26,727 - INFO - PPT saved to Worship_2026-03-08_no_double_cover.pptx
+2026-03-07 21:12:02,470 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:12:02,811 - INFO - PPT saved to Worship_2026-03-08_with_blessing_layout.pptx
+2026-03-07 21:15:55,431 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:15:55,735 - INFO - PPT saved to Worship_2026-03-08_updated_program.pptx
+2026-03-07 21:18:08,947 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:18:09,245 - INFO - PPT saved to Worship_2026-03-08_deduped.pptx
+2026-03-07 21:21:42,619 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:21:42,918 - INFO - PPT saved to Worship_2026-03-08_fixed_pages.pptx
+2026-03-07 21:22:06,996 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:22:07,314 - INFO - PPT saved to Worship_2026-03-08_fixed_pages_v2.pptx
+2026-03-07 21:22:43,272 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:22:43,617 - INFO - PPT saved to Worship_2026-03-08_fixed_pages_v3.pptx
+2026-03-07 21:24:30,533 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:24:30,832 - INFO - PPT saved to Worship_2026-03-08_check_missing_pages.pptx
+2026-03-07 21:25:32,580 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:25:32,899 - INFO - PPT saved to Worship_2026-03-08_fixed_missing_v4.pptx
+2026-03-07 21:28:13,923 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:28:14,284 - INFO - PPT saved to Worship_debug_peace_page.pptx
+2026-03-07 21:29:29,609 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:29:29,912 - INFO - PPT saved to Worship_2026-03-08_peace_fixed.pptx
+2026-03-07 21:31:40,748 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:31:41,069 - INFO - PPT saved to Worship_2026-03-08_add_peace_page.pptx
+2026-03-07 21:37:44,880 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:37:45,187 - INFO - PPT saved to Worship_2026-03-08_replaced_last2.pptx
+2026-03-07 21:43:31,676 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:43:31,985 - INFO - PPT saved to Worship_2026-03-08_after_dedup_blank_matters.pptx
+2026-03-07 21:46:02,448 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:46:02,750 - INFO - PPT saved to Worship_2026-03-08_pickup_style_matched.pptx
+2026-03-07 21:54:12,408 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:54:12,833 - INFO - PPT saved to Worship_page_check.pptx
+2026-03-07 21:56:55,171 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 21:56:55,543 - INFO - PPT saved to Worship_page29_fixed.pptx
+2026-03-07 22:02:19,500 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 22:02:19,871 - INFO - PPT saved to Worship_intercessory_layout_matched.pptx
+2026-03-07 22:03:19,255 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 22:03:19,579 - INFO - PPT saved to Worship_intercessory_template_matched.pptx
+2026-03-07 22:08:36,484 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 22:08:36,846 - INFO - PPT saved to Worship_verify_manual_intercessory.pptx
+2026-03-07 22:09:43,700 - INFO - Start generating PPT. Template: template.pptx
+2026-03-07 22:09:44,017 - INFO - PPT saved to Worship_no_override_check.pptx
+2026-03-07 22:13:36,218 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-03-07 22:13:36,909 - INFO - PPT saved to E:/christ\Worship_2026-03-09.pptx
+2026-03-08 18:36:24,600 - INFO - Start generating PPT. Template: E:/christ/template.pptx
+2026-03-08 18:36:24,640 - WARNING - Layout 'cover' not found.
+2026-03-08 18:36:25,191 - INFO - PPT saved to E:/christ\Worship_2026-03-08.pptx
