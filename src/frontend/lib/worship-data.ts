@@ -1,4 +1,19 @@
-import type { WorshipData } from "../presentation";
+export type WorshipSection = {
+  title: string;
+  lines: string[];
+};
+
+export type HymnSection = {
+  title: string;
+  lines: string[];
+};
+
+export type WorshipData = {
+  call_to_worship: WorshipSection;
+  hymns: HymnSection[];
+  theme_scripture: WorshipSection;
+  response_hymn: WorshipSection;
+};
 
 export type SelectedFile = File | null;
 
@@ -7,10 +22,12 @@ export type GenerationResult = {
   warnings: string[];
 };
 
-export type WorshipSectionPreview = {
-  label: string;
+export type WorshipSlidePreview = {
+  id: string;
+  sectionLabel: string;
   title: string;
-  lineCount: number;
+  slideLabel: string;
+  lines: string[];
 };
 
 export function formatSize(file: SelectedFile): string {
@@ -75,27 +92,52 @@ export function parseWorshipData(raw: string): WorshipData {
   };
 }
 
-export function buildPreview(data: WorshipData): WorshipSectionPreview[] {
+function chunkLines(lines: string[], size = 4): string[][] {
+  const normalized = lines.map((line) => line.trim()).filter(Boolean);
+  const chunks: string[][] = [];
+
+  for (let index = 0; index < normalized.length; index += size) {
+    chunks.push(normalized.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function buildSectionSlides(
+  sectionLabel: string,
+  title: string,
+  lines: string[],
+): WorshipSlidePreview[] {
+  const chunks = chunkLines(lines);
+
+  return chunks.map((chunk, index) => ({
+    id: `${sectionLabel}-${title}-${index + 1}`,
+    sectionLabel,
+    title,
+    slideLabel: `${index + 1} / ${chunks.length}`,
+    lines: chunk,
+  }));
+}
+
+export function buildPreview(data: WorshipData): WorshipSlidePreview[] {
   return [
-    {
-      label: "Call To Worship",
-      title: data.call_to_worship.title,
-      lineCount: data.call_to_worship.lines.filter((line) => line.trim()).length,
-    },
-    ...data.hymns.map((hymn, index) => ({
-      label: `Hymn ${index + 1}`,
-      title: hymn.title,
-      lineCount: hymn.lines.filter((line) => line.trim()).length,
-    })),
-    {
-      label: "Theme Scripture",
-      title: data.theme_scripture.title,
-      lineCount: data.theme_scripture.lines.filter((line) => line.trim()).length,
-    },
-    {
-      label: "Response Hymn",
-      title: data.response_hymn.title,
-      lineCount: data.response_hymn.lines.filter((line) => line.trim()).length,
-    },
+    ...buildSectionSlides(
+      "Call To Worship",
+      `宣召经文：${data.call_to_worship.title}`,
+      data.call_to_worship.lines,
+    ),
+    ...data.hymns.flatMap((hymn, index) =>
+      buildSectionSlides(`Hymn ${index + 1}`, `Hymn${index + 1}: ${hymn.title}`, hymn.lines),
+    ),
+    ...buildSectionSlides(
+      "Theme Scripture",
+      `主题经文：${data.theme_scripture.title}`,
+      data.theme_scripture.lines,
+    ),
+    ...buildSectionSlides(
+      "Response Hymn",
+      `回应诗：${data.response_hymn.title}`,
+      data.response_hymn.lines,
+    ),
   ];
 }

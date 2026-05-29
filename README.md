@@ -2,10 +2,9 @@
 
 This project generates a worship service PowerPoint from:
 
-- a PowerPoint template file, usually `template.pptx`
 - a structured worship data JSON file
 
-The PowerPoint generation logic lives in `src/backend/worship.py`. The recommended UI is a React app in `src/frontend/` backed by a small FastAPI service in `src/backend/app.py`.
+The PowerPoint generation logic lives in `src/backend/worship.py`. The recommended UI is a React app in `src/frontend/` backed by a small FastAPI service in `src/backend/app.py`, and the backend uses the repository's bundled `data/template.pptx`.
 
 ## What It Creates
 
@@ -30,7 +29,6 @@ Long scripture and hymn sections are split into multiple slides, with up to 4 no
 
 - Python 3.10 or newer
 - Node.js 18 or newer
-- PowerPoint template file with the expected slide layout names
 
 Python packages:
 
@@ -64,11 +62,10 @@ http://127.0.0.1:5173
 
 In the web app:
 
-1. Select the PPT template file, for example `template.pptx`.
-2. Select the worship JSON data file.
-3. Enter the service date, for example `2026-05-24`.
-4. Click `Generate PPT`.
-5. The generated PowerPoint downloads in the browser.
+1. Select the worship JSON data file.
+2. Enter the service date, for example `2026-05-24`.
+3. Click `Generate PPT`.
+4. The generated PowerPoint downloads in the browser.
 
 The downloaded file is named:
 
@@ -101,6 +98,57 @@ After a build, FastAPI serves the compiled frontend from `dist/` at:
 ```text
 http://127.0.0.1:5000
 ```
+
+## GitHub Pages
+
+GitHub Pages can publish the React frontend, but it cannot run the FastAPI backend.
+For a working Pages deployment, host the backend separately and point the frontend at
+that backend during the build.
+
+### 1. Deploy the backend
+
+Deploy the FastAPI app somewhere that can serve:
+
+- `POST /api/validate`
+- `POST /api/generate`
+- `GET /downloads/template`
+- `GET /downloads/sample-json`
+- `GET /downloads/sample-ppt`
+
+The backend now enables CORS by default and exposes the `X-Worship-Warnings` header,
+so the Pages frontend can call it from another origin.
+
+### 2. Add the repository variable
+
+In GitHub, open `Settings -> Secrets and variables -> Actions -> Variables` and add:
+
+- `VITE_API_BASE_URL`
+
+Example value:
+
+```text
+https://your-backend.example.com
+```
+
+### 3. Enable GitHub Pages
+
+In `Settings -> Pages`:
+
+- set `Source` to `GitHub Actions`
+
+The repository includes [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml),
+which builds the frontend and deploys `dist/` whenever `main` is updated.
+
+### 4. Push to `main`
+
+Once the backend URL is configured, pushing to `main` will publish the frontend to:
+
+```text
+https://joseph-xu-unb.github.io/worshipppt/
+```
+
+The workflow uses the repository name as the Vite base path. If you later switch to a
+custom domain, update `VITE_BASE_PATH` in the workflow to `/`.
 
 ## Docker Compose
 
@@ -171,6 +219,10 @@ Notes:
 Application code is organized under `src/`:
 
 ```text
+data/
+  2026-05-17.pptx
+  template.pptx
+  sample_worship_data.json
 src/
   backend/
     app.py
@@ -181,4 +233,4 @@ src/
     styles.css
 ```
 
-Generated presentation files still download in the browser, but the backend is responsible for applying your JSON content to the uploaded PowerPoint template.
+Generated presentation files still download in the browser, and the backend applies your JSON content to the bundled `data/template.pptx`.

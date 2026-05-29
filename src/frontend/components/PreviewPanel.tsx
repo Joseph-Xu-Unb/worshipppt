@@ -1,26 +1,36 @@
-import type { WorshipSectionPreview } from "../lib/worship-data";
+import type { WorshipSlidePreview } from "../lib/worship-data";
 
 type PreviewPanelProps = {
-  preview: WorshipSectionPreview[];
+  preview: WorshipSlidePreview[];
 };
 
 export function PreviewPanel({ preview }: PreviewPanelProps) {
   return (
-    <aside className="reference">
-      <h2>Deck Preview</h2>
+    <section className="reference">
+      <h2>Slide Preview</h2>
       {preview.length > 0 ? (
-        <ul>
+        <div className="slide-preview-list">
           {preview.map((item) => (
-            <li key={`${item.label}-${item.title}`}>
-              <strong>{item.label}</strong>: {item.title} ({item.lineCount} lines)
-            </li>
+            <article key={item.id} className="slide-preview-card">
+              <div className="slide-preview-head">
+                <span className="slide-preview-section">{item.sectionLabel}</span>
+                <span className="slide-preview-page">{item.slideLabel}</span>
+              </div>
+              <h3>{item.title}</h3>
+              <div className="slide-preview-lines">
+                {item.lines.map((line, index) => (
+                  <p key={`${item.id}-${index}`}>{line}</p>
+                ))}
+              </div>
+            </article>
           ))}
-        </ul>
+        </div>
       ) : (
         <p className="placeholder-copy">
-          Choose a valid JSON file to preview the worship sections before export.
+          Choose a valid JSON file to preview the paged scripture and hymn slides
+          before export.
         </p>
       )}
-    </aside>
+    </section>
   );
 }

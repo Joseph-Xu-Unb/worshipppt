@@ -1,45 +1,43 @@
+import type { FormEvent } from "react";
 import { FilePicker } from "../components/FilePicker";
-import { PreviewPanel } from "../components/PreviewPanel";
+import { TopBar } from "../components/TopBar";
 import { useWorshipBuilder } from "../hooks/useWorshipBuilder";
+import { useNavigate } from "react-router-dom";
 
 export function HomePage() {
+  const navigate = useNavigate();
   const {
-    templateFile,
     dataFile,
     serviceDate,
-    isGenerating,
     error,
-    result,
-    preview,
-    canGenerate,
+    validationMessage,
+    canPreview,
     setServiceDate,
-    setTemplateFile,
     handleDataFileChange,
-    handleSubmit,
   } = useWorshipBuilder();
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canPreview || error) return;
+    navigate("/preview");
+  }
+
   return (
-    <main className="app-shell">
+    <main className="app-shell home-shell">
+      <TopBar />
+
       <section className="workspace">
         <div className="masthead">
-          <p className="eyebrow">React + FastAPI</p>
-          <h1>Worship PPT Builder</h1>
+          <p className="eyebrow">Worship Workflow</p>
+          <h1>BSBC Chinese Congregation</h1>
           <p className="summary">
-            Upload your PowerPoint template and worship JSON, then generate the final
-            deck through the FastAPI backend while preserving the original template.
+            Upload your worship JSON and generate the final deck through the FastAPI
+            backend using the app's bundled PowerPoint template.
           </p>
         </div>
 
         <form className="builder" onSubmit={handleSubmit}>
-          <div className="steps">
-            <FilePicker
-              id="template"
-              label="Template"
-              accept=".pptx"
-              file={templateFile}
-              onChange={setTemplateFile}
-              helper="Original template.pptx"
-            />
+          <div className="steps single">
             <FilePicker
               id="worship-data"
               label="Worship Data"
@@ -62,29 +60,23 @@ export function HomePage() {
                 onChange={(event) => setServiceDate(event.target.value)}
               />
             </label>
-            <button type="submit" disabled={!canGenerate || Boolean(error)}>
-              {isGenerating ? "Generating..." : "Generate PPT"}
+            <button type="submit" disabled={!canPreview || Boolean(error)}>
+              Preview Slides
             </button>
           </div>
 
           <div className="inline-note">
-            The generated deck now uses your uploaded `template.pptx` through the
-            restored backend generator.
+            The server applies your worship data to the built-in
+            {" "}
+            `data/template.pptx`, so users only need to provide the JSON file.
           </div>
 
           {error && <div className="notice error">{error}</div>}
-          {result && (
-            <div className="notice success">
-              <strong>{result.fileName}</strong> downloaded.
-              {result.warnings.length > 0 && (
-                <span>{result.warnings.length} template warning(s) were reported.</span>
-              )}
-            </div>
+          {validationMessage && !error && (
+            <div className="notice success">{validationMessage}</div>
           )}
         </form>
       </section>
-
-      <PreviewPanel preview={preview} />
     </main>
   );
 }

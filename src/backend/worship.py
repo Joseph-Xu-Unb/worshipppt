@@ -31,31 +31,6 @@ class WorshipPPTGenerator:
     TITLE_PLACEHOLDER_IDXS = [0, 11]
     BODY_PLACEHOLDER_IDXS = [1, 10, 13]
     PAGE_PLACEHOLDER_IDXS = [12]
-    APOSTLES_CREED_LINES = [
-        "我信上帝，全能的父， 创造天地的主。",
-        "我信我主耶稣基督，上帝的独生子；",
-        "因圣灵感孕，由童贞女马利亚所生；",
-        "在本丢彼拉多手下受难， 被钉于十字架，受死，  埋葬；",
-        "降在阴间；第三天从死人中复活；",
-        "升天，坐在全能父上帝的右边；",
-        "将来必从那里降临，审判活人、死人。",
-        "我信圣灵；",
-        "我信圣而公之教会；",
-        "我信圣徒相通；",
-        "我信罪得赦免，",
-        "我信身体复活；",
-        "我信永生。阿们！",
-    ]
-    LORDS_PRAYER_LINES = [
-        "我们在天上的父，愿人都尊祢的名为圣。",
-        "愿祢的国降临；愿祢的旨意行在地上，",
-        "如同行在天上。",
-        "我们日用的饮食，今日赐给我们。",
-        "免我们的债，如同我们免了人的债。",
-        "不叫我们遇见试探，救我们脱离凶恶。",
-        "因为国度、权柄、荣耀，全是祢的，",
-        "直到永远，阿们。",
-    ]
 
     def __init__(self, template_path, data, selected_date=None):
         self.template_path = template_path
@@ -117,20 +92,6 @@ class WorshipPPTGenerator:
             self._safe_fill(
                 slide, str(len(self.prs.slides)), self.PAGE_PLACEHOLDER_IDXS
             )
-
-    def _add_static_text_slide(self, layout_name, title, lines):
-        layout = (
-            self._find_layout(layout_name)
-            or self._find_layout("child_pickup_reminder")
-            or self._find_layout("theme_scripture")
-        )
-        if not layout:
-            self._warn("No text layout found for fixed liturgy slide.")
-            return
-
-        slide = self.prs.slides.add_slide(layout)
-        self._safe_fill(slide, title, self.TITLE_PLACEHOLDER_IDXS)
-        self._safe_fill(slide, "\n".join(lines), self.BODY_PLACEHOLDER_IDXS)
 
     def _rename_custom_layouts(self):
         layout_rename_map = {
@@ -215,9 +176,7 @@ class WorshipPPTGenerator:
 
     def _add_hymn_section(self):
         self._add_layout_slide("praise_prayer")
-        self._add_static_text_slide(
-            "apostles_creed", "使徒信经", self.APOSTLES_CREED_LINES
-        )
+        self._add_layout_slide("apostles_creed")
         for i, hymn in enumerate(self.data["hymns"]):
             hymn_display_title = f"Hymn{i+1}: {hymn['title']}"
             self._add_paged_content("Hymn", hymn_display_title, hymn["lines"])
@@ -254,12 +213,6 @@ class WorshipPPTGenerator:
             "结束",
             "wishyouwell",
         ]:
-            if name == "lords_prayer":
-                self._add_static_text_slide(
-                    "lords_prayer", "主祷文", self.LORDS_PRAYER_LINES
-                )
-                continue
-
             slide = self._add_layout_slide(name)
             if not slide:
                 available = [l.name for l in self.prs.slide_layouts]

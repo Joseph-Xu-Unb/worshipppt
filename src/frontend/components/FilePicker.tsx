@@ -25,9 +25,12 @@ export function FilePicker({
   return (
     <label className="file-panel" htmlFor={id}>
       <span className="file-label">{label}</span>
-      <span className={file ? "file-name selected" : "file-name"}>
-        {file ? file.name : "Choose file"}
-      </span>
+      <div className="file-picker-row">
+        <span className="file-action">{file ? "Replace JSON File" : "Choose JSON File"}</span>
+        <span className={file ? "file-name selected" : "file-name"}>
+          {file ? file.name : "No file selected"}
+        </span>
+      </div>
       <span className="file-meta">{file ? formatSize(file) : helper}</span>
       <input id={id} type="file" accept={accept} onChange={handleChange} />
     </label>
