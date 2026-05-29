@@ -11,5 +11,7 @@ venv/
 Thumbs.db
 
 # Your generated/output files (example)
+data/
+output/
 worship_data_*.json
 *.log
