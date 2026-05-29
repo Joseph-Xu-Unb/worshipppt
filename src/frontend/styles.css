@@ -1,9 +1,15 @@
 :root {
-  color: #1d2421;
-  background: #eef1ec;
+  color: #21312c;
+  background: #f2ece2;
   font-family: Georgia, "Times New Roman", serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  --ink: #21312c;
+  --muted: #58655f;
+  --accent: #9b6548;
+  --accent-deep: #385a4c;
+  --panel: rgba(255, 252, 247, 0.82);
+  --line: rgba(33, 49, 44, 0.14);
 }
 
 * {
@@ -15,14 +21,18 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    linear-gradient(135deg, rgba(56, 90, 76, 0.18), transparent 34%),
-    linear-gradient(225deg, rgba(176, 91, 60, 0.18), transparent 38%),
-    #eef1ec;
+    radial-gradient(circle at top left, rgba(155, 101, 72, 0.16), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(56, 90, 76, 0.15), transparent 26%),
+    linear-gradient(135deg, #f7f2ea 0%, #efe7da 100%);
 }
 
 button,
 input {
   font: inherit;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 .app-shell {
@@ -41,15 +51,16 @@ input {
 }
 
 .masthead {
-  max-width: 820px;
+  max-width: 840px;
 }
 
 .eyebrow {
   margin: 0 0 14px;
-  color: #8f4c35;
+  color: var(--accent);
   font-family: "Trebuchet MS", Verdana, sans-serif;
   font-size: 0.78rem;
   font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -61,9 +72,9 @@ h1 {
 }
 
 .summary {
-  max-width: 640px;
+  max-width: 680px;
   margin: 22px 0 0;
-  color: #46504b;
+  color: var(--muted);
   font-family: "Trebuchet MS", Verdana, sans-serif;
   font-size: 1.02rem;
   line-height: 1.65;
@@ -73,9 +84,10 @@ h1 {
   align-self: start;
   max-width: 920px;
   padding: 24px;
-  border: 1px solid rgba(29, 36, 33, 0.16);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.64);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
   box-shadow: 0 22px 70px rgba(29, 36, 33, 0.12);
 }
 
@@ -85,15 +97,30 @@ h1 {
   gap: 16px;
 }
 
+.steps.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .file-panel {
   display: grid;
   gap: 12px;
   min-height: 184px;
   padding: 18px;
-  border: 1px dashed rgba(29, 36, 33, 0.35);
-  border-radius: 8px;
-  background: #fbfbf7;
+  border: 1px dashed rgba(33, 49, 44, 0.34);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(250, 246, 239, 0.92));
   cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.file-panel:hover {
+  transform: translateY(-2px);
+  border-color: rgba(155, 101, 72, 0.72);
+  box-shadow: 0 18px 40px rgba(56, 90, 76, 0.08);
 }
 
 .file-panel input {
@@ -107,12 +134,14 @@ h1 {
 .file-label,
 .file-meta,
 .date-row span,
-.reference {
+.reference,
+.inline-note,
+.placeholder-copy {
   font-family: "Trebuchet MS", Verdana, sans-serif;
 }
 
 .file-label {
-  color: #8f4c35;
+  color: var(--accent);
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -121,7 +150,7 @@ h1 {
 .file-name {
   align-self: end;
   overflow-wrap: anywhere;
-  color: #1d2421;
+  color: var(--ink);
   font-size: 1.8rem;
   line-height: 1.1;
 }
@@ -131,8 +160,8 @@ h1 {
 }
 
 .file-meta {
-  color: #69736e;
-  font-size: 0.9rem;
+  color: #6d7672;
+  font-size: 0.92rem;
 }
 
 .date-row {
@@ -157,17 +186,17 @@ h1 {
 .date-row input {
   width: 100%;
   height: 48px;
-  border: 1px solid rgba(29, 36, 33, 0.24);
-  border-radius: 6px;
+  border: 1px solid rgba(33, 49, 44, 0.2);
+  border-radius: 10px;
   padding: 0 12px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 button {
   height: 48px;
   border: 0;
-  border-radius: 6px;
-  background: #1f5f4a;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-deep), #274338);
   color: #fff;
   cursor: pointer;
   font-family: "Trebuchet MS", Verdana, sans-serif;
@@ -179,9 +208,16 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.inline-note {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
 .notice {
   margin-top: 18px;
-  border-radius: 6px;
+  border-radius: 10px;
   padding: 14px 16px;
   font-family: "Trebuchet MS", Verdana, sans-serif;
   line-height: 1.45;
@@ -205,8 +241,9 @@ button:disabled {
 .reference {
   align-self: start;
   padding: 22px;
-  border-left: 4px solid #b05b3c;
-  background: rgba(255, 255, 255, 0.5);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .reference h2 {
@@ -220,7 +257,13 @@ button:disabled {
   margin: 0;
   padding-left: 18px;
   color: #46504b;
-  line-height: 1.4;
+  line-height: 1.5;
+}
+
+.placeholder-copy {
+  margin: 0;
+  color: #5e6964;
+  line-height: 1.55;
 }
 
 @media (max-width: 880px) {
@@ -229,13 +272,13 @@ button:disabled {
     padding: 24px;
   }
 
-  .steps,
   .date-row {
     grid-template-columns: 1fr;
   }
 
   .reference {
     border-left: 0;
-    border-top: 4px solid #b05b3c;
+    border-top: 4px solid var(--accent);
+    border-radius: 12px;
   }
 }

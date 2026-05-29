@@ -1,0 +1,13 @@
+node_modules
+dist
+venv
+__pycache__
+*.pyc
+*.pyo
+*.log
+.git
+20260125.json
+worship_data_03_08.json
+Sunday_Worship_Generated.pptx
+Worship_2026-03-08.pptx
+template.pptx

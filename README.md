@@ -5,7 +5,7 @@ This project generates a worship service PowerPoint from:
 - a PowerPoint template file, usually `template.pptx`
 - a structured worship data JSON file
 
-The PowerPoint generation logic lives in `worship.py`. The recommended UI is now a React 18 web app backed by a small Flask API in `app.py`.
+The PowerPoint generation logic lives in `src/backend/worship.py`. The recommended UI is a React app in `src/frontend/` backed by a small FastAPI service in `src/backend/app.py`.
 
 ## What It Creates
 
@@ -31,13 +31,12 @@ Long scripture and hymn sections are split into multiple slides, with up to 4 no
 - Python 3.10 or newer
 - Node.js 18 or newer
 - PowerPoint template file with the expected slide layout names
-- Python packages:
+
+Python packages:
 
 ```powershell
 pip install -r requirements.txt
 ```
-
-Frontend packages:
 
 ```powershell
 npm install
@@ -45,7 +44,7 @@ npm install
 
 ## How To Run
 
-Start the Flask backend:
+Start the FastAPI backend:
 
 ```powershell
 python app.py
@@ -83,12 +82,6 @@ For example:
 Worship_2026-05-24.pptx
 ```
 
-Generation logs are written to:
-
-```text
-worship_ppt.log
-```
-
 ## Production Build
 
 Build the React app:
@@ -103,11 +96,27 @@ Then run:
 python app.py
 ```
 
-After a build, Flask serves the compiled frontend from `dist/` at:
+After a build, FastAPI serves the compiled frontend from `dist/` at:
 
 ```text
 http://127.0.0.1:5000
 ```
+
+## Docker Compose
+
+Build and run the full app with Docker Compose:
+
+```powershell
+docker compose up --build
+```
+
+Then open:
+
+```text
+http://127.0.0.1:5000
+```
+
+This uses the included multi-stage `Dockerfile` to build the React frontend and serve it with the FastAPI backend in a single container.
 
 ## JSON Data Format
 
@@ -157,86 +166,19 @@ Notes:
 - Blank strings in `lines` are ignored when the script splits text across slides.
 - `hymns` can contain multiple hymn objects.
 
-## Template Layouts
-
-The script depends on named slide layouts in the PPT template. The layout names are matched case-insensitively.
-
-Expected layout names include:
-
-```text
-cover
-prepare
-Slogan
-order
-call_to_scripture
-praise_prayer
-apostles_creed
-Hymn
-intercessory_prayer
-theme_scripture
-sermon
-response
-Offering
-praying
-lords_prayer
-ode_to_the_Trinity
-benediction
-child_pickup_reminder
-announcements_welcome_banner
-matters
-wishyouwell
-```
-
-The script also references one Chinese-named closing layout. If a layout is missing, generation continues and the missing layout is written as a warning in the log.
-
-## Template Placeholder Expectations
-
-The script fills placeholders by placeholder index:
-
-- title placeholders: `0`, `11`
-- body placeholders: `1`, `10`, `13`
-- page number placeholder: `12`
-
-If a slide layout does not have one of these placeholder indexes, that part of the slide may remain blank.
-
 ## Project Folders
 
-The repository ignores generated/local folders:
+Application code is organized under `src/`:
 
 ```text
-data/
-output/
+src/
+  backend/
+    app.py
+    worship.py
+  frontend/
+    index.html
+    main.tsx
+    styles.css
 ```
 
-Typical usage:
-
-- keep worship JSON input files in `data/`
-- keep generated PPT files in `output/` or beside the selected JSON file
-- keep the reusable PowerPoint template in the project root
-
-## Developer Notes
-
-The reusable generation entry point is:
-
-```python
-generate_worship_ppt(
-    template_path,
-    data,
-    output_path,
-    selected_date=None,
-)
-```
-
-`ChurchApp` is kept as a compatibility alias for the Tkinter controller class.
-
-The web API endpoint is:
-
-```text
-POST /api/generate
-```
-
-It expects multipart form fields:
-
-- `template`: PowerPoint `.pptx` file
-- `data`: worship `.json` file
-- `date`: service date string
+Generated presentation files still download in the browser, but the backend is responsible for applying your JSON content to the uploaded PowerPoint template.
