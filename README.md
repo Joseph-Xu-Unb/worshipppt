@@ -166,6 +166,35 @@ http://127.0.0.1:5000
 
 This uses the included multi-stage `Dockerfile` to build the React frontend and serve it with the FastAPI backend in a single container.
 
+## Render Deployment
+
+Render is a good fit for this repository because it can run the frontend and FastAPI
+backend together as a single Docker web service.
+
+The repository includes [render.yaml](/home/joseph/worshipppt/render.yaml), which tells
+Render to:
+
+- create one `free` web service
+- build from the included `Dockerfile`
+- enable auto-deploys from `main`
+- use `/api/health` as the health check
+
+### Deploy on Render
+
+1. Push the repository to GitHub.
+2. In Render, choose `New -> Blueprint`.
+3. Connect the GitHub repository.
+4. Render will detect `render.yaml` and propose one web service named `worshipppt`.
+5. Click `Apply`.
+
+When the deploy finishes, open the Render URL for the live app.
+
+### Notes
+
+- Render injects a `PORT` environment variable, and the Docker runtime now honors it automatically.
+- This app stores its template and sample files in the repository under `data/`, so no external storage setup is required.
+- On Render's free plan, the service spins down after 15 minutes of inactivity and may take about a minute to wake up again.
+
 ## JSON Data Format
 
 The JSON file must contain these top-level sections:
