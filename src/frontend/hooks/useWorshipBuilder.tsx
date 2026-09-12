@@ -27,6 +27,8 @@ type WorshipBuilderContextValue = {
   canPreview: boolean;
   setServiceDate: (value: string) => void;
   handleDataFileChange: (file: SelectedFile) => Promise<void>;
+  updatePreviewSlide: (id: string, title: string, lines: string[]) => void;
+  deletePreviewSlide: (id: string) => void;
   generatePpt: () => Promise<boolean>;
   clearResult: () => void;
   resetBuilder: () => void;
@@ -117,6 +119,7 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
       const formData = new FormData();
       formData.append("data", dataFile);
       formData.append("date", serviceDate);
+      formData.append("slides", JSON.stringify(preview));
 
       const response = await fetch(apiUrl("/api/generate"), {
         method: "POST",
@@ -156,6 +159,35 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
     setResult(null);
   }
 
+  function updatePreviewSlide(id: string, title: string, lines: string[]) {
+    setPreview((current) =>
+      current.map((slide) =>
+        slide.id === id ? { ...slide, title, lines } : slide,
+      ),
+    );
+    setResult(null);
+  }
+
+  function deletePreviewSlide(id: string) {
+    setPreview((current) => {
+      const remaining = current.filter((slide) => slide.id !== id);
+      const totals = remaining.reduce<Record<string, number>>((counts, slide) => {
+        counts[slide.sectionLabel] = (counts[slide.sectionLabel] || 0) + 1;
+        return counts;
+      }, {});
+      const positions: Record<string, number> = {};
+
+      return remaining.map((slide) => {
+        positions[slide.sectionLabel] = (positions[slide.sectionLabel] || 0) + 1;
+        return {
+          ...slide,
+          slideLabel: `${positions[slide.sectionLabel]} / ${totals[slide.sectionLabel]}`,
+        };
+      });
+    });
+    setResult(null);
+  }
+
   function resetBuilder() {
     setDataFile(null);
     setServiceDate(today);
@@ -178,6 +210,8 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
         canPreview,
         setServiceDate,
         handleDataFileChange,
+        updatePreviewSlide,
+        deletePreviewSlide,
         generatePpt,
         clearResult,
         resetBuilder,

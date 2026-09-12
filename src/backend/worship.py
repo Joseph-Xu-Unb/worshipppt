@@ -56,7 +56,14 @@ class WorshipPPTGenerator:
     @staticmethod
     def _split_lines(lines, n=4):
         lines = [line for line in lines if str(line).strip()]
-        return [lines[i : i + n] for i in range(0, len(lines), n)]
+        chunks = []
+        for line in lines:
+            # Keep an interlude with the preceding page, even when it is full.
+            if chunks and (str(line).strip() == "间奏" or len(chunks[-1]) < n):
+                chunks[-1].append(line)
+            else:
+                chunks.append([line])
+        return chunks
 
     @staticmethod
     def _safe_fill(slide, text, idx_list):
@@ -92,6 +99,36 @@ class WorshipPPTGenerator:
             self._safe_fill(
                 slide, str(len(self.prs.slides)), self.PAGE_PLACEHOLDER_IDXS
             )
+
+    def _add_edited_slides(self, kind, layout_name):
+        """Add exact slides supplied by preview mode, if present."""
+        preview_slides = self.data.get("preview_slides")
+        if preview_slides is None:
+            return False
+
+        layout = self._find_layout(layout_name)
+        if not layout:
+            self._warn(f"Layout '{layout_name}' not found.")
+            return True
+
+        for item in preview_slides:
+            if item["kind"] != kind:
+                continue
+            slide = self.prs.slides.add_slide(layout)
+            title = item["title"].strip()
+            if slide.shapes.title:
+                slide.shapes.title.text = title
+            else:
+                self._safe_fill(slide, title, self.TITLE_PLACEHOLDER_IDXS)
+            self._safe_fill(
+                slide,
+                "\n".join(line for line in item["lines"] if line.strip()),
+                self.BODY_PLACEHOLDER_IDXS,
+            )
+            self._safe_fill(
+                slide, str(len(self.prs.slides)), self.PAGE_PLACEHOLDER_IDXS
+            )
+        return True
 
     def _rename_custom_layouts(self):
         layout_rename_map = {
@@ -167,6 +204,8 @@ class WorshipPPTGenerator:
         )
 
     def _add_call_to_worship(self):
+        if self._add_edited_slides("call_to_worship", "call_to_scripture"):
+            return
         call_title = f"宣召经文：{self.data['call_to_worship']['title']}"
         self._add_paged_content(
             "call_to_scripture",
@@ -177,12 +216,16 @@ class WorshipPPTGenerator:
     def _add_hymn_section(self):
         self._add_layout_slide("praise_prayer")
         self._add_layout_slide("apostles_creed")
+        if self._add_edited_slides("hymn", "Hymn"):
+            return
         for i, hymn in enumerate(self.data["hymns"]):
             hymn_display_title = f"Hymn{i+1}: {hymn['title']}"
             self._add_paged_content("Hymn", hymn_display_title, hymn["lines"])
 
     def _add_theme_scripture(self):
         self._add_layout_slide("intercessory_prayer")
+        if self._add_edited_slides("theme_scripture", "theme_scripture"):
+            return
         self._add_paged_content(
             "theme_scripture",
             f"主题经文：{self.data['theme_scripture']['title']}",
@@ -195,6 +238,8 @@ class WorshipPPTGenerator:
             s_slide.shapes.title.text = "讲道：绝境逢生"
 
     def _add_response_hymn(self):
+        if self._add_edited_slides("response_hymn", "response"):
+            return
         response_title = f"回应诗: {self.data['response_hymn']['title']}"
         self._add_paged_content(
             "response", response_title, self.data["response_hymn"]["lines"]

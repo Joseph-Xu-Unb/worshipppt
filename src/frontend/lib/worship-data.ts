@@ -24,6 +24,7 @@ export type GenerationResult = {
 
 export type WorshipSlidePreview = {
   id: string;
+  kind: "call_to_worship" | "hymn" | "theme_scripture" | "response_hymn";
   sectionLabel: string;
   title: string;
   slideLabel: string;
@@ -96,14 +97,21 @@ function chunkLines(lines: string[], size = 4): string[][] {
   const normalized = lines.map((line) => line.trim()).filter(Boolean);
   const chunks: string[][] = [];
 
-  for (let index = 0; index < normalized.length; index += size) {
-    chunks.push(normalized.slice(index, index + size));
+  for (const line of normalized) {
+    const previous = chunks[chunks.length - 1];
+    // Keep an interlude with the preceding page, even when that page is full.
+    if (previous && (line === "间奏" || previous.length < size)) {
+      previous.push(line);
+    } else {
+      chunks.push([line]);
+    }
   }
 
   return chunks;
 }
 
 function buildSectionSlides(
+  kind: WorshipSlidePreview["kind"],
   sectionLabel: string,
   title: string,
   lines: string[],
@@ -112,6 +120,7 @@ function buildSectionSlides(
 
   return chunks.map((chunk, index) => ({
     id: `${sectionLabel}-${title}-${index + 1}`,
+    kind,
     sectionLabel,
     title,
     slideLabel: `${index + 1} / ${chunks.length}`,
@@ -122,19 +131,27 @@ function buildSectionSlides(
 export function buildPreview(data: WorshipData): WorshipSlidePreview[] {
   return [
     ...buildSectionSlides(
+      "call_to_worship",
       "Call To Worship",
       `宣召经文：${data.call_to_worship.title}`,
       data.call_to_worship.lines,
     ),
     ...data.hymns.flatMap((hymn, index) =>
-      buildSectionSlides(`Hymn ${index + 1}`, `Hymn${index + 1}: ${hymn.title}`, hymn.lines),
+      buildSectionSlides(
+        "hymn",
+        `Hymn ${index + 1}`,
+        `Hymn${index + 1}: ${hymn.title}`,
+        hymn.lines,
+      ),
     ),
     ...buildSectionSlides(
+      "theme_scripture",
       "Theme Scripture",
       `主题经文：${data.theme_scripture.title}`,
       data.theme_scripture.lines,
     ),
     ...buildSectionSlides(
+      "response_hymn",
       "Response Hymn",
       `回应诗：${data.response_hymn.title}`,
       data.response_hymn.lines,

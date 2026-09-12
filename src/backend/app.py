@@ -137,6 +137,7 @@ def download_sample_ppt():
 async def generate(
     data: UploadFile = File(...),
     selected_date: str = Form(default="", alias="date"),
+    slides: str = Form(default=""),
 ):
     """Generate a worship PPT from the bundled template and uploaded JSON file."""
     selected_date = selected_date.strip() or date.today().isoformat()
@@ -157,6 +158,32 @@ async def generate(
     validation_error = _validate_data(payload)
     if validation_error:
         raise HTTPException(status_code=400, detail=validation_error)
+
+    if slides:
+        try:
+            preview_slides = json.loads(slides)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail="Invalid edited slide data.") from exc
+
+        allowed_kinds = {
+            "call_to_worship",
+            "hymn",
+            "theme_scripture",
+            "response_hymn",
+        }
+        if not isinstance(preview_slides, list):
+            raise HTTPException(status_code=400, detail="Edited slides must be a list.")
+        for slide in preview_slides:
+            if (
+                not isinstance(slide, dict)
+                or slide.get("kind") not in allowed_kinds
+                or not isinstance(slide.get("title"), str)
+                or not slide["title"].strip()
+                or not isinstance(slide.get("lines"), list)
+                or not all(isinstance(line, str) for line in slide["lines"])
+            ):
+                raise HTTPException(status_code=400, detail="An edited slide is invalid.")
+        payload["preview_slides"] = preview_slides
 
     with tempfile.TemporaryDirectory(prefix="worship-ppt-") as tmp_dir_name:
         tmp_dir = Path(tmp_dir_name)

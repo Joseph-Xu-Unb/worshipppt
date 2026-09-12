@@ -7,15 +7,18 @@ export function PreviewPage() {
   const navigate = useNavigate();
   const {
     error,
+    dataFile,
     result,
     preview,
     isGenerating,
     generatePpt,
+    updatePreviewSlide,
+    deletePreviewSlide,
     clearResult,
     resetBuilder,
   } = useWorshipBuilder();
 
-  if (preview.length === 0) {
+  if (!dataFile) {
     return <Navigate to="/" replace />;
   }
 
@@ -37,8 +40,8 @@ export function PreviewPage() {
         <p className="eyebrow">Review Before Export</p>
         <h1>Slide Preview</h1>
         <p className="summary">
-          Review every scripture and hymn slide before generating the final PowerPoint.
-          If anything looks off, go back and adjust the JSON.
+          Edit or delete any scripture or hymn slide before generating the final
+          PowerPoint.
         </p>
       </section>
 
@@ -64,7 +67,11 @@ export function PreviewPage() {
         </div>
       )}
 
-      <PreviewPanel preview={preview} />
+      <PreviewPanel
+        preview={preview}
+        onUpdate={updatePreviewSlide}
+        onDelete={deletePreviewSlide}
+      />
     </main>
   );
 }
