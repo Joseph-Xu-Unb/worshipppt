@@ -35,8 +35,8 @@ export function ProjectGuide() {
         <p className="eyebrow">Resources</p>
         <h2>Need Help Preparing The JSON?</h2>
         <p className="resource-copy">
-          Download the template and sample data, then use a ChatGPT Project to turn
-          raw worship planning chats into the JSON this page expects.
+          Download the sample data, then use ChatGPT or Muse AI to turn raw worship
+          planning chats into the JSON this page expects.
         </p>
       </div>
 
@@ -94,6 +94,32 @@ export function ProjectGuide() {
           value={projectInstructions}
           readOnly
           aria-label="ChatGPT project instructions template"
+        />
+      </details>
+
+      <details className="guide-card">
+        <summary>
+          <span>Muse AI Setup Guide</span>
+          <span className="guide-summary-note">Open instructions</span>
+        </summary>
+        <h3>Use Muse AI to Prepare Worship Data</h3>
+        <ol>
+          <li>Download the Sample JSON above to see the structure this app accepts.</li>
+          <li>Open Muse AI and start a new conversation or project for worship preparation.</li>
+          <li>Paste the instruction template below, then provide the worship planning chat or notes.</li>
+          <li>Ask Muse AI to return only valid JSON, save it as <code>worship_data.json</code>, and check that all songs and scripture passages are complete.</li>
+          <li>Upload the JSON on the home page, choose the service date, preview the slides, and generate your PowerPoint.</li>
+        </ol>
+        <p className="guide-note">
+          AI generated scripture and song lyrics can contain errors. Review the JSON
+          against your approved Bible translation and source materials before creating
+          the service deck.
+        </p>
+        <textarea
+          className="instructions-box"
+          value={projectInstructions}
+          readOnly
+          aria-label="Muse AI worship data instruction template"
         />
       </details>
     </section>
