@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ChatHistoryInput } from "./ChatHistoryInput";
 
 import { lyricsLibraryUrl } from "../lib/church-resources";
 
@@ -11,23 +11,9 @@ const musePrompt = `请把下面的教会群聊天记录整理成崇拜 PPT。
 供你连接制作服务：
 MCP Streamable HTTP：https://worshipppt.onrender.com/mcp/
 无需登录或 API 密钥。调用 get_sample_worship_data 查看格式，用 validate_worship_data 验证，再用 generate_worship_powerpoint 生成，service_date 使用 YYYY-MM-DD。将返回的 pptx_base64 解码为可下载的 .pptx，并说明 warnings。
-如连接超时，先访问 https://worshipppt.onrender.com/api/health，等服务启动后重试。启动可能需要约一分钟。
-
-以下是从教会微信群或 WhatsApp 群复制的聊天记录：
-[请在这里粘贴聊天记录]`;
+如连接超时，先访问 https://worshipppt.onrender.com/api/health，等服务启动后重试。启动可能需要约一分钟。`;
 
 export function MuseGuide() {
-  const [copyMessage, setCopyMessage] = useState("");
-
-  async function copyPrompt() {
-    try {
-      await navigator.clipboard.writeText(musePrompt);
-      setCopyMessage("已复制，请粘贴到 Muse AI。");
-    } catch {
-      setCopyMessage("请选中下方文字，手动复制。");
-    }
-  }
-
   return (
     <section className="resource-block">
       <div className="resource-header">
@@ -55,14 +41,9 @@ export function MuseGuide() {
         <h3>2. 粘贴到 Muse AI</h3>
         <p className="resource-copy">
           打开 Muse AI：<a href="https://muse.ai/" target="_blank" rel="noreferrer">https://muse.ai/</a>。
-          复制下面的文字，粘贴到新对话中，再把教会群消息加在最后并发送。
+          在下方粘贴教会群消息，点击“复制指令和聊天记录”，再粘贴到 Muse 的新对话中发送。
         </p>
-        <button type="button" onClick={() => void copyPrompt()}>复制给 Muse 的文字</button>
-        <p role="status" aria-live="polite">{copyMessage}</p>
-        <details>
-          <summary>查看要复制的文字</summary>
-          <textarea className="instructions-box" value={musePrompt} readOnly aria-label="复制给 Muse AI 的文字" />
-        </details>
+        <ChatHistoryInput instructions={musePrompt} assistant="Muse AI" />
       </div>
 
       <div className="guide-card" style={{ padding: 18 }}>

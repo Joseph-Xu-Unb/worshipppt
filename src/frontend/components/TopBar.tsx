@@ -10,7 +10,6 @@ export function TopBar() {
       <nav className="resource-nav" aria-label="Resources">
         <a href={downloadUrl("/downloads/template")}>Template</a>
         <a href={downloadUrl("/downloads/sample-json")}>Sample JSON</a>
-        <Link to="/guide">ChatGPT 指南</Link>
         <Link to="/guide/muse">Muse AI 指南</Link>
       </nav>
     </header>
