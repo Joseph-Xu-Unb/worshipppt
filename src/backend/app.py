@@ -19,6 +19,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from src.backend.worship import generate_worship_ppt
+from src.backend.content import is_marker, section_pages, validate_section
 
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -83,32 +84,41 @@ def _validate_data(data):
         return f"Missing required JSON section(s): {', '.join(missing)}."
 
     for section in ("call_to_worship", "theme_scripture", "response_hymn"):
-        item = data[section]
-        if not isinstance(item, dict):
-            return f"{section} must be an object."
-        if not isinstance(item.get("title"), str):
-            return f"{section}.title must be a string."
-        if not isinstance(item.get("lines"), list) or not all(isinstance(line, str) for line in item["lines"]):
-            return f"{section}.lines must be a list of strings."
+        error = validate_section(data[section], section)
+        if error:
+            return error
 
     if not isinstance(data["hymns"], list) or not data["hymns"]:
         return "hymns must be a non-empty list."
 
-    for index, hymn in enumerate(data["hymns"], start=1):
-        if not isinstance(hymn, dict):
-            return f"hymns[{index}] must be an object."
-        if not isinstance(hymn.get("title"), str):
-            return f"hymns[{index}].title must be a string."
-        if not isinstance(hymn.get("lines"), list) or not all(isinstance(line, str) for line in hymn["lines"]):
-            return f"hymns[{index}].lines must be a list of strings."
+    for index, hymn in enumerate(data["hymns"]):
+        error = validate_section(hymn, f"hymns[{index}]")
+        if error:
+            return error
 
     return None
 
 
 @mcp_server.tool()
 def get_sample_worship_data() -> dict:
-    """Get example JSON with all required worship sections, titles, and lyric lines."""
-    return json.loads(SAMPLE_JSON_PATH.read_text(encoding="utf-8"))
+    """Get example worship JSON. Sections accept legacy lines or explicit pages.
+
+    For songs prefer pages: [{"lines": ["lyric 1", "lyric 2"], "footer": "间奏"}].
+    Each entry is exactly one slide; footer is optional (间奏/前奏/尾声/结束).
+    Do not also supply section-level lines when using pages. Blank lines do not
+    define slide boundaries in the legacy lines format.
+    """
+    data = json.loads(SAMPLE_JSON_PATH.read_text(encoding="utf-8"))
+    for song in [*data["hymns"], data["response_hymn"]]:
+        pages = []
+        for lines in section_pages(song):
+            if is_marker(lines[-1]):
+                pages.append({"lines": lines[:-1], "footer": lines[-1]})
+            else:
+                pages.append({"lines": lines})
+        song.pop("lines", None)
+        song["pages"] = pages
+    return data
 
 
 @mcp_server.tool()

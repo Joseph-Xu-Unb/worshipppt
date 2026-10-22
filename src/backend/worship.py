@@ -10,6 +10,8 @@ from pptx import Presentation
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Pt
 
+from src.backend.content import section_pages, split_lines
+
 logging.basicConfig(
     filename="worship_ppt.log",
     level=logging.INFO,
@@ -55,15 +57,7 @@ class WorshipPPTGenerator:
 
     @staticmethod
     def _split_lines(lines, n=4):
-        lines = [line for line in lines if str(line).strip()]
-        chunks = []
-        for line in lines:
-            # Keep an interlude with the preceding page, even when it is full.
-            if chunks and (str(line).strip() == "间奏" or len(chunks[-1]) < n):
-                chunks[-1].append(line)
-            else:
-                chunks.append([line])
-        return chunks
+        return split_lines(lines, n)
 
     @staticmethod
     def _safe_fill(slide, text, idx_list):
@@ -80,13 +74,13 @@ class WorshipPPTGenerator:
             return None
         return self.prs.slides.add_slide(layout)
 
-    def _add_paged_content(self, layout_name, title, lines):
+    def _add_paged_content(self, layout_name, title, section):
         layout = self._find_layout(layout_name)
         if not layout:
             self._warn(f"Layout '{layout_name}' not found.")
             return
 
-        for chunk in self._split_lines(lines, 4):
+        for chunk in section_pages(section):
             slide = self.prs.slides.add_slide(layout)
 
             if slide.shapes.title:
@@ -210,7 +204,7 @@ class WorshipPPTGenerator:
         self._add_paged_content(
             "call_to_scripture",
             call_title,
-            self.data["call_to_worship"]["lines"],
+            self.data["call_to_worship"],
         )
 
     def _add_hymn_section(self):
@@ -220,7 +214,7 @@ class WorshipPPTGenerator:
             return
         for i, hymn in enumerate(self.data["hymns"]):
             hymn_display_title = f"Hymn{i+1}: {hymn['title']}"
-            self._add_paged_content("Hymn", hymn_display_title, hymn["lines"])
+            self._add_paged_content("Hymn", hymn_display_title, hymn)
 
     def _add_theme_scripture(self):
         self._add_layout_slide("intercessory_prayer")
@@ -229,7 +223,7 @@ class WorshipPPTGenerator:
         self._add_paged_content(
             "theme_scripture",
             f"主题经文：{self.data['theme_scripture']['title']}",
-            self.data["theme_scripture"]["lines"],
+            self.data["theme_scripture"],
         )
 
     def _add_sermon_slide(self):
@@ -242,7 +236,7 @@ class WorshipPPTGenerator:
             return
         response_title = f"回应诗: {self.data['response_hymn']['title']}"
         self._add_paged_content(
-            "response", response_title, self.data["response_hymn"]["lines"]
+            "response", response_title, self.data["response_hymn"]
         )
 
     def _add_static_ending(self):

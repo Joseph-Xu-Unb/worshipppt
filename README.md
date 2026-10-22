@@ -25,6 +25,31 @@ The generated presentation includes the worship flow used by the script:
 
 Long scripture and hymn sections are split into multiple slides, with up to 4 non-empty lines per slide.
 
+For songs, use explicit `pages` to preserve the source presentation's lyric grouping:
+
+```json
+{
+  "title": "诗歌名称",
+  "pages": [
+    { "lines": ["第一句", "第二句", "第三句", "第四句"], "footer": "间奏" },
+    { "lines": ["下一段第一句", "下一段第二句"], "footer": "结束" }
+  ]
+}
+```
+
+Use this section structure for each entry in `hymns` and for `response_hymn`.
+Each page becomes one slide without further splitting. `footer` is optional and
+accepts `间奏`, `前奏`, `尾声`, or `结束`, with optional parentheses. It appears
+after that page's lyrics and does not count toward the four lyric lines. Keep
+each page to at most four lyric lines when preparing the data. Put markers in
+`footer`, rather than `lines`, and omit section-level `lines` when using `pages`.
+
+Existing sections using `lines` still work. Standalone markers (including
+parenthesized forms) attach to the preceding page and end that page, even if it
+has fewer than four lyric lines. Blank lines are ignored, so they cannot specify
+page breaks. A marker before any lyrics is rejected because its position is
+ambiguous. Frontend preview and backend generation follow the same rules.
+
 ## Requirements
 
 - Python 3.10 or newer
