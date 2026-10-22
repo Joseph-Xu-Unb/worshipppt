@@ -1,7 +1,11 @@
 import { useState } from "react";
 
+import { lyricsLibraryUrl } from "../lib/church-resources";
+
 const musePrompt = `请把下面的教会群聊天记录整理成崇拜 PPT。
 先列出聚会日期、宣召和主题经文、诗歌名称、完整歌词及顺序，供我核对。以群里最后确认的安排为准；有缺失或冲突先问我，不要编造。经文使用和合本，保留歌词重复段落和间奏。
+教会歌词库：${lyricsLibraryUrl}
+优先使用教会歌词库中的版本。若无法打开链接，请让我上传相应诗歌文件或粘贴完整歌词，不要凭诗歌名称猜写歌词。
 我确认后，请生成可下载的 PowerPoint 文件。
 
 供你连接制作服务：
@@ -38,6 +42,11 @@ export function MuseGuide() {
           从微信或 WhatsApp 教会群复制本次崇拜的筹备消息，包括后续更正。
           请包含<strong>聚会日期、经文出处、诗歌名称和完整歌词</strong>，以及诗歌顺序。
           歌词若在图片或附件里，也请一起发给 Muse。
+        </p>
+        <p className="guide-note">
+          <strong>缺少歌词？</strong>打开
+          <a href={lyricsLibraryUrl} target="_blank" rel="noreferrer">教会歌词库（OneDrive）</a>，
+          找到本次诗歌，把完整歌词复制给 Muse，或下载诗歌文件后上传给它。
         </p>
         <p className="guide-note">需要您手动提供这些消息，Muse 不会通过本应用自动读取教会群。</p>
       </div>

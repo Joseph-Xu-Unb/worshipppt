@@ -1,10 +1,14 @@
 import { downloadUrl } from "../lib/app-config";
+import { lyricsLibraryUrl } from "../lib/church-resources";
 
 const projectInstructions = `角色： 你是一个专业的教会服事数据处理专家，擅长从杂乱的聊天记录中提取关键信息并转化为精准的 JSON 格式。
 
 任务： 请阅读以下聊天记录，提取主日崇拜的经文和诗歌内容，并生成一个名为 worship_data.json 的文件。
 
 先整理并请用户确认：聚会日期（YYYY-MM-DD）、宣召经文出处、主题经文出处、诗歌名称、完整歌词及崇拜顺序。同一事项有更正时，以最后明确确认的信息为准；存在冲突或缺失时先询问用户，不要编造经文或歌词。聚会日期需在本应用中单独选择，不必添加到 JSON 中。
+
+教会歌词库：${lyricsLibraryUrl}
+优先使用教会歌词库中的版本。若无法打开链接，请让用户上传相应诗歌文件或粘贴完整歌词，不要凭诗歌名称猜写歌词。
 
 JSON 结构要求：
 
@@ -52,6 +56,12 @@ export function ProjectGuide() {
             <li><strong>诗歌资料：</strong>收集赞美诗、诗班献诗及回应诗的名称、完整歌词、重复段落、间奏和演唱顺序。</li>
             <li>歌词或经文若在图片、附件或不同消息中，请一并提供给 AI，并核对识别出的文字。资料不全或有冲突时，先向同工确认。</li>
           </ol>
+          <p className="guide-note">
+            <strong>缺少歌词？</strong>打开
+            <a href={lyricsLibraryUrl} target="_blank" rel="noreferrer">教会歌词库（OneDrive）</a>，
+            找到本次诗歌，把完整歌词复制给 ChatGPT，或下载诗歌文件后上传给它。
+            请使用教会确认的歌词版本。
+          </p>
           <p className="guide-note">
             请手动复制并提供聊天记录；本应用不会自动读取微信或 WhatsApp 群。
             只提供诗歌名称时，还需要补充完整歌词。把相关消息一起交给 AI，有助于它识别最终确认的安排。
