@@ -1,10 +1,12 @@
 import { downloadUrl } from "../lib/app-config";
 
-const projectInstructions = `Role: 你是一个专业的教会服事数据处理专家，擅长从杂乱的聊天记录中提取关键信息并转化为精准的 JSON 格式。
+const projectInstructions = `角色： 你是一个专业的教会服事数据处理专家，擅长从杂乱的聊天记录中提取关键信息并转化为精准的 JSON 格式。
 
-Task: 请阅读以下聊天记录，提取主日崇拜的经文和诗歌内容，并生成一个名为 worship_data.json 的文件。
+任务： 请阅读以下聊天记录，提取主日崇拜的经文和诗歌内容，并生成一个名为 worship_data.json 的文件。
 
-Data Schema (JSON 结构要求):
+先整理并请用户确认：聚会日期（YYYY-MM-DD）、宣召经文出处、主题经文出处、诗歌名称、完整歌词及崇拜顺序。同一事项有更正时，以最后明确确认的信息为准；存在冲突或缺失时先询问用户，不要编造经文或歌词。聚会日期需在本应用中单独选择，不必添加到 JSON 中。
+
+JSON 结构要求：
 
 call_to_worship: 包含 title（经文名字）和 lines（按圣经原文章节号分行，一节一行；行号不要加括号，如 "1 你们要..."）。
 
@@ -14,7 +16,7 @@ theme_scripture: 包含 title 和 lines（使用和合本，按圣经原文章�
 
 response_hymn: 包含 title 和 lines。
 
-Formatting Rules (格式准则):
+格式准则：
 
 经文版本：必须使用“和合本”。
 
@@ -28,142 +30,116 @@ Formatting Rules (格式准则):
 
 纯文本输出：只输出符合 JSON 语法的 .json 文件。`;
 
-export function ProjectGuide() {
+export function ProjectGuide({ provider = "chatgpt" }: { provider?: "muse" | "chatgpt" }) {
+  const isMuse = provider === "muse";
   return (
     <section className="resource-block">
       <div className="resource-header">
-        <p className="eyebrow">Resources</p>
-        <h2>Need Help Preparing The JSON?</h2>
+        <p className="eyebrow">使用指南</p>
+        <h2>{isMuse ? "Muse AI：从教会群聊天记录制作崇拜 PPT" : "ChatGPT：从教会群聊天记录制作崇拜 PPT"}</h2>
         <p className="resource-copy">
-          Download the sample data, then use ChatGPT or Muse AI to turn raw worship
-          planning chats into the JSON this page expects.
+          先从教会微信群或 WhatsApp 群复制与本次崇拜 PPT 有关的聊天记录，
+          再使用 {isMuse ? "Muse AI" : "ChatGPT"} 整理内容并制作简报。
         </p>
       </div>
+
+      <section className="guide-card" aria-labelledby="chat-preparation-title">
+        <div style={{ padding: 18 }}>
+          <h3 id="chat-preparation-title">第一步：收集教会群里的崇拜资料</h3>
+          <ol>
+            <li>找到本次主日崇拜的筹备消息，复制相关聊天记录，包括后续补充和更正。</li>
+            <li><strong>聚会日期：</strong>确认消息对应哪一次主日，整理为 YYYY-MM-DD 格式。</li>
+            <li><strong>经文出处：</strong>收集宣召经文、主题经文的书卷名称和章节范围，以及群里提供的经文正文。</li>
+            <li><strong>诗歌资料：</strong>收集赞美诗、诗班献诗及回应诗的名称、完整歌词、重复段落、间奏和演唱顺序。</li>
+            <li>歌词或经文若在图片、附件或不同消息中，请一并提供给 AI，并核对识别出的文字。资料不全或有冲突时，先向同工确认。</li>
+          </ol>
+          <p className="guide-note">
+            请手动复制并提供聊天记录；本应用不会自动读取微信或 WhatsApp 群。
+            只提供诗歌名称时，还需要补充完整歌词。把相关消息一起交给 AI，有助于它识别最终确认的安排。
+          </p>
+        </div>
+      </section>
 
       <div className="download-grid">
         <a className="download-card" href={downloadUrl("/downloads/template")}>
-          <span className="download-label">Template</span>
+          <span className="download-label">PPT 模板</span>
           <strong>template.pptx</strong>
-          <span>The same PowerPoint template from `data/` used by the server generator.</span>
+          <span>本应用制作崇拜简报时使用的模板。</span>
         </a>
         <a className="download-card" href={downloadUrl("/downloads/sample-ppt")}>
-          <span className="download-label">Sample Deck</span>
+          <span className="download-label">简报示例</span>
           <strong>2026-05-17.pptx</strong>
-          <span>A real sample PowerPoint deck users can download for reference.</span>
+          <span>下载已有的崇拜简报，参考版式和内容安排。</span>
         </a>
         <a className="download-card" href={downloadUrl("/downloads/sample-json")}>
-          <span className="download-label">Example</span>
-          <strong>Sample JSON</strong>
-          <span>A ready example from `data/` showing the expected JSON structure.</span>
+          <span className="download-label">数据示例</span>
+          <strong>示例 JSON</strong>
+          <span>查看本应用需要的经文和歌词数据格式。</span>
         </a>
       </div>
 
-      <details className="guide-card">
+      {isMuse && <details className="guide-card" open>
         <summary>
-          <span>ChatGPT Project Setup Guide</span>
-          <span className="guide-summary-note">Open instructions</span>
+          <span>Muse AI 使用指南</span>
+          <span className="guide-summary-note">展开说明</span>
         </summary>
-        <h3>ChatGPT Project Setup</h3>
+        <h3>使用 Muse AI 制作崇拜 PPT</h3>
         <ol>
-          <li>
-            Open ChatGPT and create a new Project. Official guide:
-            {" "}
-            <a
-              href="https://help.openai.com/en/articles/10169521-projects-in-chatgpt"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Projects in ChatGPT
-            </a>
-          </li>
-          <li>Upload the downloaded `template.pptx` and sample JSON into the project sources.</li>
-          <li>
-            In the project menu, open `Project settings`, then paste the instruction
-            template below into project instructions.
-          </li>
-          <li>Paste your worship planning chat records into a project chat and ask ChatGPT to generate `worship_data.json`.</li>
-          <li>Download the JSON result from ChatGPT and upload it here to preview and generate the final PPT.</li>
+          <li>打开 <a href="https://muse.ai/" target="_blank" rel="noreferrer">Muse AI</a>，开始一次崇拜筹备对话。</li>
+          <li>复制下方提示词，并粘贴从教会微信群或 WhatsApp 群收集的聊天记录。重点提供聚会日期、经文出处、诗歌名称和完整歌词。</li>
+          <li>请 Muse 通过 Streamable HTTP 连接 <code>https://worshipppt.onrender.com/mcp/</code>。WorshipPPT 服务不需要登录、API 密钥或授权请求头。</li>
+          <li>先核对 Muse 整理的日期、经文、歌词和顺序。确认后，再请它验证数据并生成可下载的 PowerPoint 文件。</li>
+          <li>查看返回的提示信息，并打开下载的 PPT，检查文字和排版后再用于聚会。</li>
         </ol>
-        <p className="guide-note">
-          OpenAI says projects let you upload files and add project-specific
-          instructions, and those instructions override your global custom
-          instructions inside that project.
-        </p>
         <textarea
           className="instructions-box"
-          value={projectInstructions}
-          readOnly
-          aria-label="ChatGPT project instructions template"
-        />
-      </details>
+          value={`请根据我从教会微信群或 WhatsApp 群复制的崇拜 PPT 筹备聊天记录，协助制作本次主日崇拜简报。
 
-      <details className="guide-card">
-        <summary>
-          <span>Muse AI Setup Guide</span>
-          <span className="guide-summary-note">Open instructions</span>
-        </summary>
-        <h3>Use WorshipPPT with Muse AI</h3>
-        <ol>
-          <li>
-            Open <a href="https://muse.ai/" target="_blank" rel="noreferrer">Muse AI</a>
-            {" "}and start a conversation for your worship service.
-          </li>
-          <li>
-            Ask Muse to connect to the WorshipPPT MCP server using Streamable HTTP
-            at <code>https://worshipppt.onrender.com/mcp/</code>.
-            WorshipPPT requires no sign-in, API key, or authorization header.
-          </li>
-          <li>
-            Paste the connection prompt below. Provide your service date and worship
-            planning notes, including the complete scripture and song text.
-          </li>
-          <li>
-            Review the prepared content, then ask Muse to validate it and generate
-            the PowerPoint. Ask Muse to save the returned presentation as a downloadable file.
-          </li>
-          <li>
-            Review any generation warnings and open the downloaded PowerPoint to
-            check the slides before the service.
-          </li>
-        </ol>
-        <textarea
-          className="instructions-box"
-          value={`Connect to WorshipPPT using its MCP Streamable HTTP endpoint:
+通过 MCP Streamable HTTP 连接 WorshipPPT：
 https://worshipppt.onrender.com/mcp/
-Authentication: none. No API key or authorization header is needed.
+本服务无需登录、API 密钥或授权请求头。
 
-Discover the available tools, then:
-1. Call get_sample_worship_data to learn the required JSON structure.
-2. Use my worship planning notes to prepare the data. Ask me for any missing service date, scripture, or lyrics. Do not invent missing content.
-3. Show me the prepared content for review.
-4. Call validate_worship_data and fix any validation errors.
-5. When I ask you to generate the presentation, call generate_worship_powerpoint with data and service_date in YYYY-MM-DD format.
-6. Decode pptx_base64 into the returned filename and offer the .pptx file for download. Show me any returned warnings.
+请依次完成：
+1. 发现可用工具，调用 get_sample_worship_data 了解 JSON 数据结构。
+2. 从聊天记录提取聚会日期、宣召经文出处及正文、主题经文出处及正文、赞美诗/诗班献诗/回应诗的名称、完整歌词和顺序。经文使用和合本；保留歌词重复段落和间奏。
+3. 同一事项有更正时，以最后明确确认的信息为准。日期不清楚、内容缺失或消息冲突时，先问我，不要编造经文或歌词。
+4. 列出整理结果供我核对，尤其是聚会日期、经文章节范围、歌词完整性和诗歌顺序。
+5. 调用 validate_worship_data 验证数据，并修正格式错误。
+6. 等我确认生成后，调用 generate_worship_powerpoint，将 data 和 YYYY-MM-DD 格式的 service_date 传入。
+7. 将返回的 pptx_base64 解码，按返回的 filename 保存为可下载的 .pptx 文件，并向我说明 warnings 中的提示。
 
-Service date: [YYYY-MM-DD]
-Worship planning notes: [paste notes here]`}
+聚会日期：[YYYY-MM-DD；如未确定，请从聊天记录整理后向我确认]
+教会群聊天记录（包括补充、更正及完整歌词）：
+[在这里粘贴微信或 WhatsApp 群里的相关消息]`}
           readOnly
-          aria-label="Muse AI MCP connection and presentation generation prompt"
+          aria-label="Muse AI 连接服务及制作崇拜 PPT 的中文提示词"
         />
         <p className="guide-note">
-          If Muse cannot connect to MCP or save the presentation, use the JSON workflow:
-          paste the instruction template below into Muse, save its result as
-          {" "}<code>worship_data.json</code>, then upload it on this app’s home page.
-          Choose the service date, preview the slides, and generate the PowerPoint here.
+          如果 Muse 无法连接 MCP 或保存 PPT，请使用下方的 JSON 指令整理聊天记录，
+          将结果保存为 <code>worship_data.json</code>，再回到本应用首页上传文件、
+          选择聚会日期、预览幻灯片并生成 PPT。
         </p>
-        <h3>Worship JSON Instructions</h3>
-        <p className="guide-note">
-          AI generated scripture and song lyrics can contain errors. Review the JSON
-          against your approved Bible translation and source materials before creating
-          the service deck.
-        </p>
-        <textarea
-          className="instructions-box"
-          value={projectInstructions}
-          readOnly
-          aria-label="Muse AI worship data instruction template"
-        />
-      </details>
+        <h3>整理崇拜 JSON 的指令</h3>
+        <p className="guide-note">请根据教会确认的经文版本和歌词原文核对 AI 整理的内容。</p>
+        <textarea className="instructions-box" value={projectInstructions} readOnly aria-label="Muse AI 崇拜数据中文指令模板" />
+      </details>}
+
+      {!isMuse && <details className="guide-card" open>
+        <summary>
+          <span>ChatGPT 项目设置指南</span>
+          <span className="guide-summary-note">展开说明</span>
+        </summary>
+        <h3>使用 ChatGPT 整理教会群聊天记录</h3>
+        <ol>
+          <li>打开 ChatGPT，创建新项目。可参考<a href="https://help.openai.com/en/articles/10169521-projects-in-chatgpt" target="_blank" rel="noreferrer">官方项目指南</a>。</li>
+          <li>下载上方的示例 JSON，并上传至项目作为格式参考。</li>
+          <li>将下方中文指令粘贴到项目指令中。</li>
+          <li>在项目对话中粘贴教会微信群或 WhatsApp 群的崇拜筹备记录，包括聚会日期、经文出处、完整歌词和后续更正。</li>
+          <li>核对 AI 整理的资料，请它生成 <code>worship_data.json</code>，下载后在本应用首页上传，并单独选择已确认的聚会日期。</li>
+          <li>预览幻灯片，核对内容和顺序后生成 PPT。</li>
+        </ol>
+        <textarea className="instructions-box" value={projectInstructions} readOnly aria-label="ChatGPT 项目中文指令模板" />
+      </details>}
     </section>
   );
 }
