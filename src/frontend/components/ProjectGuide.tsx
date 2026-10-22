@@ -102,14 +102,56 @@ export function ProjectGuide() {
           <span>Muse AI Setup Guide</span>
           <span className="guide-summary-note">Open instructions</span>
         </summary>
-        <h3>Use Muse AI to Prepare Worship Data</h3>
+        <h3>Use WorshipPPT with Muse AI</h3>
         <ol>
-          <li>Download the Sample JSON above to see the structure this app accepts.</li>
-          <li>Open Muse AI and start a new conversation or project for worship preparation.</li>
-          <li>Paste the instruction template below, then provide the worship planning chat or notes.</li>
-          <li>Ask Muse AI to return only valid JSON, save it as <code>worship_data.json</code>, and check that all songs and scripture passages are complete.</li>
-          <li>Upload the JSON on the home page, choose the service date, preview the slides, and generate your PowerPoint.</li>
+          <li>
+            Open <a href="https://muse.ai/" target="_blank" rel="noreferrer">Muse AI</a>
+            {" "}and start a conversation for your worship service.
+          </li>
+          <li>
+            Ask Muse to connect to the WorshipPPT MCP server using Streamable HTTP
+            at <code>https://worshipppt.onrender.com/mcp/</code>.
+            WorshipPPT requires no sign-in, API key, or authorization header.
+          </li>
+          <li>
+            Paste the connection prompt below. Provide your service date and worship
+            planning notes, including the complete scripture and song text.
+          </li>
+          <li>
+            Review the prepared content, then ask Muse to validate it and generate
+            the PowerPoint. Ask Muse to save the returned presentation as a downloadable file.
+          </li>
+          <li>
+            Review any generation warnings and open the downloaded PowerPoint to
+            check the slides before the service.
+          </li>
         </ol>
+        <textarea
+          className="instructions-box"
+          value={`Connect to WorshipPPT using its MCP Streamable HTTP endpoint:
+https://worshipppt.onrender.com/mcp/
+Authentication: none. No API key or authorization header is needed.
+
+Discover the available tools, then:
+1. Call get_sample_worship_data to learn the required JSON structure.
+2. Use my worship planning notes to prepare the data. Ask me for any missing service date, scripture, or lyrics. Do not invent missing content.
+3. Show me the prepared content for review.
+4. Call validate_worship_data and fix any validation errors.
+5. When I ask you to generate the presentation, call generate_worship_powerpoint with data and service_date in YYYY-MM-DD format.
+6. Decode pptx_base64 into the returned filename and offer the .pptx file for download. Show me any returned warnings.
+
+Service date: [YYYY-MM-DD]
+Worship planning notes: [paste notes here]`}
+          readOnly
+          aria-label="Muse AI MCP connection and presentation generation prompt"
+        />
+        <p className="guide-note">
+          If Muse cannot connect to MCP or save the presentation, use the JSON workflow:
+          paste the instruction template below into Muse, save its result as
+          {" "}<code>worship_data.json</code>, then upload it on this app’s home page.
+          Choose the service date, preview the slides, and generate the PowerPoint here.
+        </p>
+        <h3>Worship JSON Instructions</h3>
         <p className="guide-note">
           AI generated scripture and song lyrics can contain errors. Review the JSON
           against your approved Bible translation and source materials before creating

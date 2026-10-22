@@ -212,3 +212,27 @@ src/
 ```
 
 Generated presentation files still download in the browser, and the backend applies your JSON content to the bundled `data/template.pptx`.
+
+## MCP server
+
+The FastAPI service also exposes a stateless Streamable HTTP MCP endpoint at
+`http://127.0.0.1:5000/mcp/`. After deployment, use
+`https://worshipppt.onrender.com/mcp/` in an MCP client that supports remote
+Streamable HTTP servers. Use the trailing slash. No authentication is required,
+just as with the existing generation API.
+
+Available tools:
+
+- `get_sample_worship_data`: returns example worship JSON.
+- `validate_worship_data`: checks required sections, titles, and text lines.
+- `generate_worship_powerpoint`: accepts `data` and optional `service_date`
+  (`YYYY-MM-DD`), and returns `filename`, `mime_type`, `pptx_base64`, and `warnings`.
+  The client must decode the base64 result to save the PowerPoint. Large decks
+  may exceed a client's tool response limit; the web app remains available for
+  direct downloads.
+
+Start the server using the existing `python app.py` command after installing
+`requirements.txt`; MCP runs in the same process and Docker image. Generated
+files use temporary storage and are removed after encoding the response.
+For a different hostname, configure comma-separated `MCP_ALLOWED_HOSTS` and
+`MCP_ALLOWED_ORIGINS` environment variables to allow that hostname and origin.

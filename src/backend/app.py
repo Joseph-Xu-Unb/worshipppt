@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import json
+from contextlib import asynccontextmanager
 import os
 import tempfile
 from datetime import date
@@ -12,6 +14,9 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
+
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from src.backend.worship import generate_worship_ppt
 
@@ -25,7 +30,34 @@ SAMPLE_JSON_PATH = DATA_DIR / "sample_worship_data.json"
 SAMPLE_PPT_PATH = DATA_DIR / "2026-05-17.pptx"
 REQUIRED_SECTIONS = ("call_to_worship", "hymns", "theme_scripture", "response_hymn")
 
-app = FastAPI()
+mcp_server = FastMCP(
+    "WorshipPPT",
+    stateless_http=True,
+    json_response=True,
+    streamable_http_path="/",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=os.getenv(
+            "MCP_ALLOWED_HOSTS",
+            "localhost,localhost:*,127.0.0.1,127.0.0.1:*,worshipppt.onrender.com",
+        ).split(","),
+        allowed_origins=os.getenv(
+            "MCP_ALLOWED_ORIGINS",
+            "http://localhost:*,http://127.0.0.1:*,https://worshipppt.onrender.com",
+        ).split(","),
+    ),
+)
+mcp_app = mcp_server.streamable_http_app()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with mcp_server.session_manager.run():
+        yield
+
+
+app = FastAPI(lifespan=lifespan)
+app.mount("/mcp", mcp_app)
 
 allowed_origins = [
     origin.strip()
@@ -56,8 +88,8 @@ def _validate_data(data):
             return f"{section} must be an object."
         if not isinstance(item.get("title"), str):
             return f"{section}.title must be a string."
-        if not isinstance(item.get("lines"), list):
-            return f"{section}.lines must be a list."
+        if not isinstance(item.get("lines"), list) or not all(isinstance(line, str) for line in item["lines"]):
+            return f"{section}.lines must be a list of strings."
 
     if not isinstance(data["hymns"], list) or not data["hymns"]:
         return "hymns must be a non-empty list."
@@ -67,10 +99,49 @@ def _validate_data(data):
             return f"hymns[{index}] must be an object."
         if not isinstance(hymn.get("title"), str):
             return f"hymns[{index}].title must be a string."
-        if not isinstance(hymn.get("lines"), list):
-            return f"hymns[{index}].lines must be a list."
+        if not isinstance(hymn.get("lines"), list) or not all(isinstance(line, str) for line in hymn["lines"]):
+            return f"hymns[{index}].lines must be a list of strings."
 
     return None
+
+
+@mcp_server.tool()
+def get_sample_worship_data() -> dict:
+    """Get example JSON with all required worship sections, titles, and lyric lines."""
+    return json.loads(SAMPLE_JSON_PATH.read_text(encoding="utf-8"))
+
+
+@mcp_server.tool()
+def validate_worship_data(data: dict) -> dict:
+    """Validate worship JSON before generating a presentation."""
+    error = _validate_data(data)
+    return {"ok": error is None, "error": error}
+
+
+@mcp_server.tool()
+def generate_worship_powerpoint(data: dict, service_date: str = "") -> dict:
+    """Generate a PPTX with the bundled template. Decode pptx_base64 to save the file.
+
+    service_date must be YYYY-MM-DD; omitted dates use the server's current date.
+    Review returned warnings for content that needs attention.
+    """
+    error = _validate_data(data)
+    if error:
+        raise ValueError(error)
+    selected_date = date.fromisoformat(service_date) if service_date else date.today()
+    with tempfile.TemporaryDirectory(prefix="worship-mcp-") as directory:
+        template = Path(directory) / "template.pptx"
+        output = Path(directory) / f"Worship_{selected_date.isoformat()}.pptx"
+        template.write_bytes(DEFAULT_TEMPLATE_PATH.read_bytes())
+        warnings = generate_worship_ppt(
+            str(template), data, str(output), selected_date=selected_date.isoformat()
+        )
+        return {
+            "filename": output.name,
+            "mime_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "pptx_base64": base64.b64encode(output.read_bytes()).decode("ascii"),
+            "warnings": warnings or [],
+        }
 
 
 @app.get("/api/health")
