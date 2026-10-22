@@ -30,16 +30,15 @@ response_hymn: 包含 title 和 lines。
 
 纯文本输出：只输出符合 JSON 语法的 .json 文件。`;
 
-export function ProjectGuide({ provider = "chatgpt" }: { provider?: "muse" | "chatgpt" }) {
-  const isMuse = provider === "muse";
+export function ProjectGuide() {
   return (
     <section className="resource-block">
       <div className="resource-header">
         <p className="eyebrow">使用指南</p>
-        <h2>{isMuse ? "Muse AI：从教会群聊天记录制作崇拜 PPT" : "ChatGPT：从教会群聊天记录制作崇拜 PPT"}</h2>
+        <h2>ChatGPT：从教会群聊天记录制作崇拜 PPT</h2>
         <p className="resource-copy">
           先从教会微信群或 WhatsApp 群复制与本次崇拜 PPT 有关的聊天记录，
-          再使用 {isMuse ? "Muse AI" : "ChatGPT"} 整理内容并制作简报。
+          再使用 ChatGPT 整理内容并制作简报。
         </p>
       </div>
 
@@ -78,53 +77,7 @@ export function ProjectGuide({ provider = "chatgpt" }: { provider?: "muse" | "ch
         </a>
       </div>
 
-      {isMuse && <details className="guide-card" open>
-        <summary>
-          <span>Muse AI 使用指南</span>
-          <span className="guide-summary-note">展开说明</span>
-        </summary>
-        <h3>使用 Muse AI 制作崇拜 PPT</h3>
-        <ol>
-          <li>打开 <a href="https://muse.ai/" target="_blank" rel="noreferrer">Muse AI</a>，开始一次崇拜筹备对话。</li>
-          <li>复制下方提示词，并粘贴从教会微信群或 WhatsApp 群收集的聊天记录。重点提供聚会日期、经文出处、诗歌名称和完整歌词。</li>
-          <li>请 Muse 通过 Streamable HTTP 连接 <code>https://worshipppt.onrender.com/mcp/</code>。WorshipPPT 服务不需要登录、API 密钥或授权请求头。</li>
-          <li>先核对 Muse 整理的日期、经文、歌词和顺序。确认后，再请它验证数据并生成可下载的 PowerPoint 文件。</li>
-          <li>查看返回的提示信息，并打开下载的 PPT，检查文字和排版后再用于聚会。</li>
-        </ol>
-        <textarea
-          className="instructions-box"
-          value={`请根据我从教会微信群或 WhatsApp 群复制的崇拜 PPT 筹备聊天记录，协助制作本次主日崇拜简报。
-
-通过 MCP Streamable HTTP 连接 WorshipPPT：
-https://worshipppt.onrender.com/mcp/
-本服务无需登录、API 密钥或授权请求头。
-
-请依次完成：
-1. 发现可用工具，调用 get_sample_worship_data 了解 JSON 数据结构。
-2. 从聊天记录提取聚会日期、宣召经文出处及正文、主题经文出处及正文、赞美诗/诗班献诗/回应诗的名称、完整歌词和顺序。经文使用和合本；保留歌词重复段落和间奏。
-3. 同一事项有更正时，以最后明确确认的信息为准。日期不清楚、内容缺失或消息冲突时，先问我，不要编造经文或歌词。
-4. 列出整理结果供我核对，尤其是聚会日期、经文章节范围、歌词完整性和诗歌顺序。
-5. 调用 validate_worship_data 验证数据，并修正格式错误。
-6. 等我确认生成后，调用 generate_worship_powerpoint，将 data 和 YYYY-MM-DD 格式的 service_date 传入。
-7. 将返回的 pptx_base64 解码，按返回的 filename 保存为可下载的 .pptx 文件，并向我说明 warnings 中的提示。
-
-聚会日期：[YYYY-MM-DD；如未确定，请从聊天记录整理后向我确认]
-教会群聊天记录（包括补充、更正及完整歌词）：
-[在这里粘贴微信或 WhatsApp 群里的相关消息]`}
-          readOnly
-          aria-label="Muse AI 连接服务及制作崇拜 PPT 的中文提示词"
-        />
-        <p className="guide-note">
-          如果 Muse 无法连接 MCP 或保存 PPT，请使用下方的 JSON 指令整理聊天记录，
-          将结果保存为 <code>worship_data.json</code>，再回到本应用首页上传文件、
-          选择聚会日期、预览幻灯片并生成 PPT。
-        </p>
-        <h3>整理崇拜 JSON 的指令</h3>
-        <p className="guide-note">请根据教会确认的经文版本和歌词原文核对 AI 整理的内容。</p>
-        <textarea className="instructions-box" value={projectInstructions} readOnly aria-label="Muse AI 崇拜数据中文指令模板" />
-      </details>}
-
-      {!isMuse && <details className="guide-card" open>
+      <details className="guide-card" open>
         <summary>
           <span>ChatGPT 项目设置指南</span>
           <span className="guide-summary-note">展开说明</span>
@@ -139,7 +92,7 @@ https://worshipppt.onrender.com/mcp/
           <li>预览幻灯片，核对内容和顺序后生成 PPT。</li>
         </ol>
         <textarea className="instructions-box" value={projectInstructions} readOnly aria-label="ChatGPT 项目中文指令模板" />
-      </details>}
+      </details>
     </section>
   );
 }
