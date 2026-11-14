@@ -5,9 +5,17 @@ type PreviewPanelProps = {
   preview: WorshipSlidePreview[];
   onUpdate: (id: string, title: string, lines: string[]) => void;
   onDelete: (id: string) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
+  onInsert: (afterId: string) => string;
 };
 
-export function PreviewPanel({ preview, onUpdate, onDelete }: PreviewPanelProps) {
+export function PreviewPanel({
+  preview,
+  onUpdate,
+  onDelete,
+  onMove,
+  onInsert,
+}: PreviewPanelProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftLines, setDraftLines] = useState("");
@@ -43,12 +51,27 @@ export function PreviewPanel({ preview, onUpdate, onDelete }: PreviewPanelProps)
     }
   }
 
+  function insertSlide(slide: WorshipSlidePreview) {
+    const newId = onInsert(slide.id);
+    setEditingId(newId);
+    setDraftTitle(slide.title);
+    setDraftLines("");
+  }
+
   return (
     <section className="reference">
       <h2>Slide Preview</h2>
       {preview.length > 0 ? (
         <div className="slide-preview-list">
-          {preview.map((item) => (
+          {preview.map((item, itemIndex) => {
+            const canMoveEarlier =
+              itemIndex > 0
+              && preview[itemIndex - 1].sectionLabel === item.sectionLabel;
+            const canMoveLater =
+              itemIndex < preview.length - 1
+              && preview[itemIndex + 1].sectionLabel === item.sectionLabel;
+
+            return (
             <article key={item.id} className="slide-preview-card">
               <div className="slide-preview-head">
                 <span className="slide-preview-section">{item.sectionLabel}</span>
@@ -93,6 +116,31 @@ export function PreviewPanel({ preview, onUpdate, onDelete }: PreviewPanelProps)
                     ))}
                   </div>
                   <div className="slide-card-actions">
+                    <button
+                      type="button"
+                      className="secondary-button add-slide-button"
+                      onClick={() => insertSlide(item)}
+                    >
+                      + Add After
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button move-button"
+                      onClick={() => onMove(item.id, -1)}
+                      disabled={!canMoveEarlier}
+                      aria-label={`Move ${item.sectionLabel} slide earlier`}
+                    >
+                      ↑ Earlier
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button move-button"
+                      onClick={() => onMove(item.id, 1)}
+                      disabled={!canMoveLater}
+                      aria-label={`Move ${item.sectionLabel} slide later`}
+                    >
+                      ↓ Later
+                    </button>
                     <button type="button" className="secondary-button" onClick={() => startEditing(item)}>
                       Edit
                     </button>
@@ -103,7 +151,8 @@ export function PreviewPanel({ preview, onUpdate, onDelete }: PreviewPanelProps)
                 </>
               )}
             </article>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <p className="placeholder-copy">

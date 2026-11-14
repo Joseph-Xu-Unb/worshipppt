@@ -29,6 +29,8 @@ type WorshipBuilderContextValue = {
   handleDataFileChange: (file: SelectedFile) => Promise<void>;
   updatePreviewSlide: (id: string, title: string, lines: string[]) => void;
   deletePreviewSlide: (id: string) => void;
+  movePreviewSlide: (id: string, direction: -1 | 1) => void;
+  insertPreviewSlide: (afterId: string) => string;
   generatePpt: () => Promise<boolean>;
   clearResult: () => void;
   resetBuilder: () => void;
@@ -168,24 +170,70 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
     setResult(null);
   }
 
-  function deletePreviewSlide(id: string) {
-    setPreview((current) => {
-      const remaining = current.filter((slide) => slide.id !== id);
-      const totals = remaining.reduce<Record<string, number>>((counts, slide) => {
-        counts[slide.sectionLabel] = (counts[slide.sectionLabel] || 0) + 1;
-        return counts;
-      }, {});
-      const positions: Record<string, number> = {};
+  function relabelSlides(slides: WorshipSlidePreview[]) {
+    const totals = slides.reduce<Record<string, number>>((counts, slide) => {
+      counts[slide.sectionLabel] = (counts[slide.sectionLabel] || 0) + 1;
+      return counts;
+    }, {});
+    const positions: Record<string, number> = {};
 
-      return remaining.map((slide) => {
-        positions[slide.sectionLabel] = (positions[slide.sectionLabel] || 0) + 1;
-        return {
-          ...slide,
-          slideLabel: `${positions[slide.sectionLabel]} / ${totals[slide.sectionLabel]}`,
-        };
-      });
+    return slides.map((slide) => {
+      positions[slide.sectionLabel] = (positions[slide.sectionLabel] || 0) + 1;
+      return {
+        ...slide,
+        slideLabel: `${positions[slide.sectionLabel]} / ${totals[slide.sectionLabel]}`,
+      };
+    });
+  }
+
+  function deletePreviewSlide(id: string) {
+    setPreview((current) => relabelSlides(current.filter((slide) => slide.id !== id)));
+    setResult(null);
+  }
+
+  function movePreviewSlide(id: string, direction: -1 | 1) {
+    setPreview((current) => {
+      const sourceIndex = current.findIndex((slide) => slide.id === id);
+      if (sourceIndex < 0) return current;
+
+      const sectionLabel = current[sourceIndex].sectionLabel;
+      const targetIndex = sourceIndex + direction;
+      if (
+        targetIndex < 0
+        || targetIndex >= current.length
+        || current[targetIndex].sectionLabel !== sectionLabel
+      ) {
+        return current;
+      }
+
+      const reordered = [...current];
+      [reordered[sourceIndex], reordered[targetIndex]] = [
+        reordered[targetIndex],
+        reordered[sourceIndex],
+      ];
+      return relabelSlides(reordered);
     });
     setResult(null);
+  }
+
+  function insertPreviewSlide(afterId: string) {
+    const newId = `inserted-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setPreview((current) => {
+      const sourceIndex = current.findIndex((slide) => slide.id === afterId);
+      if (sourceIndex < 0) return current;
+
+      const source = current[sourceIndex];
+      const inserted: WorshipSlidePreview = {
+        ...source,
+        id: newId,
+        lines: [],
+      };
+      const next = [...current];
+      next.splice(sourceIndex + 1, 0, inserted);
+      return relabelSlides(next);
+    });
+    setResult(null);
+    return newId;
   }
 
   function resetBuilder() {
@@ -212,6 +260,8 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
         handleDataFileChange,
         updatePreviewSlide,
         deletePreviewSlide,
+        movePreviewSlide,
+        insertPreviewSlide,
         generatePpt,
         clearResult,
         resetBuilder,

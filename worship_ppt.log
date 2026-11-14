@@ -107,3 +107,94 @@ UnboundLocalError: local variable 'cover_slide' referenced before assignment
 2026-03-08 18:36:24,600 - INFO - Start generating PPT. Template: E:/christ/template.pptx
 2026-03-08 18:36:24,640 - WARNING - Layout 'cover' not found.
 2026-03-08 18:36:25,191 - INFO - PPT saved to E:/christ\Worship_2026-03-08.pptx
+2026-05-29 11:42:12,812 - INFO - Start generating PPT. Template: /tmp/worship-ppt-_64c95zp/template.pptx
+2026-05-29 11:42:13,139 - INFO - PPT saved to /tmp/worship-ppt-_64c95zp/Worship_2026-06-30.pptx
+2026-05-29 11:45:13,062 - INFO - Start generating PPT. Template: /tmp/worship-ppt-wnmo33bv/template.pptx
+2026-05-29 11:45:13,367 - INFO - PPT saved to /tmp/worship-ppt-wnmo33bv/Worship_2026-06-30.pptx
+2026-05-29 12:07:28,667 - INFO - Start generating PPT. Template: /tmp/worship-ppt-12_bjxty/template.pptx
+2026-05-29 12:07:29,181 - INFO - PPT saved to /tmp/worship-ppt-12_bjxty/Worship_2026-05-29.pptx
+2026-10-21 21:04:10,413 - INFO - StreamableHTTP session manager started
+2026-10-21 21:04:10,437 - INFO - HTTP Request: GET http://localhost/api/health "HTTP/1.1 200 OK"
+2026-10-21 21:04:10,439 - WARNING - Invalid Host header: localhost
+2026-10-21 21:04:10,439 - INFO - Terminating session: None
+2026-10-21 21:04:10,440 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 421 Misdirected Request"
+2026-10-21 21:04:10,441 - INFO - StreamableHTTP session manager shutting down
+2026-10-21 21:04:16,800 - INFO - StreamableHTTP session manager started
+2026-10-21 21:04:16,805 - INFO - HTTP Request: GET http://localhost/api/health "HTTP/1.1 200 OK"
+2026-10-21 21:04:16,809 - INFO - Terminating session: None
+2026-10-21 21:04:16,810 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 200 OK"
+2026-10-21 21:04:16,813 - INFO - Processing request of type ListToolsRequest
+2026-10-21 21:04:16,813 - INFO - Terminating session: None
+2026-10-21 21:04:16,814 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 200 OK"
+2026-10-21 21:04:16,817 - INFO - Processing request of type CallToolRequest
+2026-10-21 21:04:16,852 - INFO - Terminating session: None
+2026-10-21 21:04:16,853 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 200 OK"
+2026-10-21 21:04:16,854 - INFO - StreamableHTTP session manager shutting down
+2026-10-21 21:04:23,578 - INFO - StreamableHTTP session manager started
+2026-10-21 21:04:23,582 - INFO - HTTP Request: GET http://localhost/api/health "HTTP/1.1 200 OK"
+2026-10-21 21:04:23,585 - INFO - Terminating session: None
+2026-10-21 21:04:23,586 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 200 OK"
+2026-10-21 21:04:23,589 - INFO - Processing request of type ListToolsRequest
+2026-10-21 21:04:23,590 - INFO - Terminating session: None
+2026-10-21 21:04:23,591 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 200 OK"
+2026-10-21 21:04:23,595 - INFO - Processing request of type CallToolRequest
+2026-10-21 21:04:23,597 - INFO - Terminating session: None
+2026-10-21 21:04:23,598 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 200 OK"
+2026-10-21 21:04:23,603 - INFO - Processing request of type CallToolRequest
+2026-10-21 21:04:23,604 - INFO - Terminating session: None
+2026-10-21 21:04:23,605 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 200 OK"
+2026-10-21 21:04:23,609 - INFO - Processing request of type CallToolRequest
+2026-10-21 21:04:23,609 - INFO - Terminating session: None
+2026-10-21 21:04:23,610 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 200 OK"
+2026-10-21 21:04:23,613 - INFO - Processing request of type CallToolRequest
+2026-10-21 21:04:23,896 - INFO - Start generating PPT. Template: /tmp/worship-mcp-pu4vj83o/template.pptx
+2026-10-21 21:04:24,295 - INFO - PPT saved to /tmp/worship-mcp-pu4vj83o/Worship_2026-10-25.pptx
+2026-10-21 21:04:24,364 - INFO - Terminating session: None
+2026-10-21 21:04:24,370 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 200 OK"
+2026-10-21 21:04:24,421 - INFO - Processing request of type CallToolRequest
+2026-10-21 21:04:24,422 - INFO - Terminating session: None
+2026-10-21 21:04:24,423 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 200 OK"
+2026-10-21 21:04:24,425 - WARNING - Invalid Host header: unexpected.example
+2026-10-21 21:04:24,425 - INFO - Terminating session: None
+2026-10-21 21:04:24,426 - INFO - HTTP Request: POST http://localhost/mcp/ "HTTP/1.1 421 Misdirected Request"
+2026-10-21 21:04:24,427 - INFO - StreamableHTTP session manager shutting down
+2026-10-21 21:33:13,953 - INFO - StreamableHTTP session manager started
+2026-10-21 21:33:13,958 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 503 Service Unavailable"
+2026-10-21 21:33:13,960 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 422 Unprocessable Entity"
+2026-10-21 21:33:13,963 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 422 Unprocessable Entity"
+2026-10-21 21:33:13,966 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 200 OK"
+2026-10-21 21:33:13,967 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 502 Bad Gateway"
+2026-10-21 21:33:13,968 - INFO - StreamableHTTP session manager shutting down
+2026-10-21 21:33:25,882 - INFO - StreamableHTTP session manager started
+2026-10-21 21:33:25,887 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 503 Service Unavailable"
+2026-10-21 21:33:25,889 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 422 Unprocessable Entity"
+2026-10-21 21:33:25,893 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 422 Unprocessable Entity"
+2026-10-21 21:33:25,896 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 200 OK"
+2026-10-21 21:33:25,897 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 422 Unprocessable Entity"
+2026-10-21 21:33:25,899 - INFO - StreamableHTTP session manager shutting down
+2026-10-21 21:33:29,097 - INFO - StreamableHTTP session manager started
+2026-10-21 21:33:29,101 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 503 Service Unavailable"
+2026-10-21 21:33:29,104 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 422 Unprocessable Entity"
+2026-10-21 21:33:29,106 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 422 Unprocessable Entity"
+2026-10-21 21:33:29,109 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 200 OK"
+2026-10-21 21:33:29,149 - INFO - Start generating PPT. Template: /tmp/worship-chat-86p0a4by/template.pptx
+2026-10-21 21:33:29,551 - INFO - PPT saved to /tmp/worship-chat-86p0a4by/Worship_2026-10-25.pptx
+2026-10-21 21:33:36,587 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 200 OK"
+2026-10-21 21:33:36,592 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 200 OK"
+2026-10-21 21:33:36,592 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 422 Unprocessable Entity"
+2026-10-21 21:33:36,595 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 200 OK"
+2026-10-21 21:33:36,596 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 422 Unprocessable Entity"
+2026-10-21 21:33:36,600 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 200 OK"
+2026-10-21 21:33:36,601 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 502 Bad Gateway"
+2026-10-21 21:33:36,605 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 401 Unauthorized"
+2026-10-21 21:33:36,606 - INFO - HTTP Request: POST http://testserver/api/generate-from-chat "HTTP/1.1 502 Bad Gateway"
+2026-10-21 21:33:36,609 - INFO - HTTP Request: GET http://testserver/api/health "HTTP/1.1 200 OK"
+2026-10-21 21:33:36,609 - INFO - StreamableHTTP session manager shutting down
+2026-10-22 11:27:11,299 - INFO - Start generating PPT. Template: /home/joseph/worshipppt/data/template.pptx
+2026-10-22 11:27:11,688 - INFO - PPT saved to /tmp/tmpdemwe0p6/test.pptx
+2026-10-22 11:27:11,776 - INFO - Start generating PPT. Template: /home/joseph/worshipppt/data/template.pptx
+2026-10-22 11:27:12,137 - INFO - PPT saved to /tmp/tmpcrg8unqd/test.pptx
+2026-10-22 11:27:34,517 - INFO - Start generating PPT. Template: /tmp/worship-mcp-qpo59kny/template.pptx
+2026-10-22 11:27:34,865 - INFO - PPT saved to /tmp/worship-mcp-qpo59kny/Worship_2026-10-25.pptx
+2026-10-22 11:27:35,023 - INFO - Start generating PPT. Template: /tmp/worship-mcp-pji1n8ah/template.pptx
+2026-10-22 11:27:35,369 - INFO - PPT saved to /tmp/worship-mcp-pji1n8ah/Worship_2026-10-25.pptx

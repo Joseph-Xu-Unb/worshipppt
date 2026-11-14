@@ -398,6 +398,12 @@ button:disabled {
 
 .slide-preview-lines p {
   margin: 0;
+  list-style: none;
+  counter-increment: none;
+}
+
+.slide-preview-lines p::before {
+  content: none;
 }
 
 .slide-editor {
@@ -433,6 +439,7 @@ button:disabled {
 
 .slide-card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
   margin-top: auto;
@@ -450,6 +457,15 @@ button:disabled {
 .delete-button {
   background: #f8e5df;
   color: #87301c;
+}
+
+.slide-card-actions .move-button:disabled {
+  background: #f4f5f2;
+  color: #a3aca7;
+}
+
+.add-slide-button {
+  margin-right: auto;
 }
 
 .placeholder-copy {

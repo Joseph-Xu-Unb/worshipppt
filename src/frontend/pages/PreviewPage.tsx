@@ -14,6 +14,8 @@ export function PreviewPage() {
     generatePpt,
     updatePreviewSlide,
     deletePreviewSlide,
+    movePreviewSlide,
+    insertPreviewSlide,
     clearResult,
     resetBuilder,
   } = useWorshipBuilder();
@@ -71,6 +73,8 @@ export function PreviewPage() {
         preview={preview}
         onUpdate={updatePreviewSlide}
         onDelete={deletePreviewSlide}
+        onMove={movePreviewSlide}
+        onInsert={insertPreviewSlide}
       />
     </main>
   );

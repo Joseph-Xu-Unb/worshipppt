@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from datetime import date
 
@@ -46,11 +47,14 @@ class WorshipPPTGenerator:
         self.warnings.append(msg)
 
     def _find_layout(self, layout_name):
+        requested_name = layout_name.lower().strip()
         return next(
             (
                 layout
                 for layout in self.prs.slide_layouts
-                if layout.name.lower().strip() == layout_name.lower().strip()
+                if layout.name.lower().strip() == requested_name
+                or re.sub(r"^\d+_", "", layout.name.lower().strip())
+                == requested_name
             ),
             None,
         )
@@ -218,6 +222,7 @@ class WorshipPPTGenerator:
 
     def _add_theme_scripture(self):
         self._add_layout_slide("intercessory_prayer")
+        self._add_layout_slide("child_dropoff_reminder")
         if self._add_edited_slides("theme_scripture", "theme_scripture"):
             return
         self._add_paged_content(
