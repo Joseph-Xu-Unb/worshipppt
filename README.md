@@ -25,6 +25,10 @@ The generated presentation includes the worship flow used by the script:
 
 Long scripture and hymn sections are split into multiple slides, with up to 4 non-empty lines per slide.
 
+### Hymn Page Numbers
+
+Hymn slides (including each song in `hymns` and the `response_hymn`) feature centered page numbers at the bottom in `X/Y` format (e.g., `4/6` indicates slide 4 of a 6-slide hymn), displayed in 16 pt font size. Page numbers are tracked per individual song, resetting for each new hymn. Scripture slides do not include page numbers.
+
 For songs, use explicit `pages` to preserve the source presentation's lyric grouping:
 
 ```json
@@ -89,8 +93,10 @@ In the web app:
 
 1. Select the worship JSON data file.
 2. Enter the service date, for example `2026-05-24`.
-3. Click `Generate PPT`.
-4. The generated PowerPoint downloads in the browser.
+3. Click `Preview Slides` to review the generated slides.
+4. (Optional) Edit titles, lyrics, reorder, insert, or delete individual slides.
+5. Click `Generate PPT`.
+6. The generated PowerPoint downloads in the browser.
 
 The downloaded file is named:
 
@@ -229,14 +235,28 @@ data/
 src/
   backend/
     app.py
+    content.py
     worship.py
   frontend/
+    components/
+    hooks/
+    lib/
+    pages/
+    App.tsx
     index.html
     main.tsx
     styles.css
 ```
 
 Generated presentation files still download in the browser, and the backend applies your JSON content to the bundled `data/template.pptx`.
+
+## AI Assistant Guide (Muse AI)
+
+The web app includes an assistant guide at `/guide/muse`. It allows church volunteers to paste church group chat logs (WeChat or WhatsApp) into an AI prompt that instructs Muse AI or any LLM client to:
+
+1. Extract dates, scriptures, and hymns from group messages.
+2. Retrieve complete lyrics from the church's OneDrive lyric library.
+3. Automatically validate and generate the presentation via the MCP server (`/mcp/`).
 
 ## MCP server
 
