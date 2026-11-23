@@ -132,10 +132,9 @@ class PaginationTests(unittest.TestCase):
                     # Check centered alignment
                     p = page_ph.text_frame.paragraphs[0]
                     self.assertEqual(p.alignment, PP_ALIGN.CENTER)
-                    # Check font size in 14-18 pt range
+                    # Check font size is 28 pt
                     run = p.runs[0]
-                    self.assertGreaterEqual(run.font.size, Pt(14))
-                    self.assertLessEqual(run.font.size, Pt(18))
+                    self.assertEqual(run.font.size, Pt(28))
                     # Check horizontal centering
                     center_x = page_ph.left + page_ph.width / 2
                     self.assertAlmostEqual(center_x, prs.slide_width / 2, delta=1000)

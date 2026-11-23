@@ -27,7 +27,7 @@ Long scripture and hymn sections are split into multiple slides, with up to 4 no
 
 ### Hymn Page Numbers
 
-Hymn slides (including each song in `hymns` and the `response_hymn`) feature centered page numbers at the bottom in `X/Y` format (e.g., `4/6` indicates slide 4 of a 6-slide hymn), displayed in 16 pt font size. Page numbers are tracked per individual song, resetting for each new hymn. Scripture slides do not include page numbers.
+Hymn slides (including each song in `hymns` and the `response_hymn`) feature centered page numbers at the bottom in `X/Y` format (e.g., `4/6` indicates slide 4 of a 6-slide hymn), displayed in 28 pt font size. Page numbers are tracked per individual song, resetting for each new hymn. Scripture slides do not include page numbers.
 
 For songs, use explicit `pages` to preserve the source presentation's lyric grouping:
 

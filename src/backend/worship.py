@@ -107,32 +107,39 @@ class WorshipPPTGenerator:
         if ph is not None:
             old_top = ph.top
             old_width = ph.width
-            old_height = ph.height
             ph.left = (self.prs.slide_width - old_width) // 2
-            ph.top = old_top
+            ph.top = old_top - Pt(8)
             ph.width = old_width
-            ph.height = old_height
+            ph.height = Pt(36)
             ph.text = page_text
-            p = ph.text_frame.paragraphs[0]
+            tf = ph.text_frame
+            tf.margin_top = 0
+            tf.margin_bottom = 0
+            tf.word_wrap = False
+            p = tf.paragraphs[0]
             p.alignment = PP_ALIGN.CENTER
             if p.runs:
                 run = p.runs[0]
-                run.font.size = Pt(16)
+                run.font.size = Pt(28)
                 run.font.name = "微软雅黑"
                 run.font.color.rgb = RGBColor(255, 255, 255)
             return True
 
         width = 2743200
-        height = 365125
+        height = Pt(36)
         left = (self.prs.slide_width - width) // 2
-        top = 6356352
+        top = 6356352 - Pt(8)
         tx_box = slide.shapes.add_textbox(left, top, width, height)
-        p = tx_box.text_frame.paragraphs[0]
+        tf = tx_box.text_frame
+        tf.margin_top = 0
+        tf.margin_bottom = 0
+        tf.word_wrap = False
+        p = tf.paragraphs[0]
         p.text = page_text
         p.alignment = PP_ALIGN.CENTER
         if p.runs:
             run = p.runs[0]
-            run.font.size = Pt(16)
+            run.font.size = Pt(28)
             run.font.name = "微软雅黑"
             run.font.color.rgb = RGBColor(255, 255, 255)
         return True

@@ -408,8 +408,8 @@ button:disabled {
 
 .slide-preview-page-number {
   text-align: center;
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 1.15rem;
+  font-weight: 700;
   color: var(--accent);
   margin-top: 10px;
 }
