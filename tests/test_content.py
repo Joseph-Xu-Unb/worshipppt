@@ -81,6 +81,8 @@ class PaginationTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as directory:
                 output = Path(directory) / "test.pptx"
                 result = generate_worship_powerpoint(data, "2026-10-25")
+                self.assertIn("1drv.ms", result["reminder"])
+                self.assertTrue(any("1drv.ms" in w for w in result["warnings"]))
                 output.write_bytes(base64.b64decode(result["pptx_base64"]))
                 self.assertTrue(result["filename"].endswith("2026-10-25.pptx"))
                 bodies = []

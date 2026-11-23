@@ -31,8 +31,28 @@ SAMPLE_JSON_PATH = DATA_DIR / "sample_worship_data.json"
 SAMPLE_PPT_PATH = DATA_DIR / "2026-05-17.pptx"
 REQUIRED_SECTIONS = ("call_to_worship", "hymns", "theme_scripture", "response_hymn")
 
+WORSHIP_ARCHIVE_URL = (
+    "https://1drv.ms/f/c/1b40ff3184add23e/IgBvMYWWe1v8RpbhkkjUr142Aar3qCdtzJEPobKBbub6zMU?e=lFGb49"
+)
+
+MATTERS_COPY_REMINDER = (
+    "重要后续步骤（事项汇报页复制）：模板生成的事项汇报页（matters）默认为空白。请前往往期崇拜 PPT 归档库（"
+    f"{WORSHIP_ARCHIVE_URL}"
+    "），找到上周（即距离本次崇拜最近的前一个主日）的 worship ppt 文件，将其中的“事项报告 / 事项汇报”（matters）页内容完整复制到当前生成的 PPT 对应页面中，确保事项汇报不留空。"
+)
+
+MCP_INSTRUCTIONS = (
+    "WorshipPPT Presentation Server.\n"
+    "Generates Sunday worship service presentations (PPTX) from structured JSON worship data.\n"
+    "CRITICAL AGENT INSTRUCTION:\n"
+    "The generated presentation's announcements/matters slide ('matters') is intentionally left blank by the template. "
+    f"After calling generate_worship_powerpoint, you must go to the worship PPT archive ({WORSHIP_ARCHIVE_URL}), "
+    "locate last week's worship PPT, and copy the matters/announcements slide content into the new presentation."
+)
+
 mcp_server = FastMCP(
     "WorshipPPT",
+    instructions=MCP_INSTRUCTIONS,
     stateless_http=True,
     json_response=True,
     streamable_http_path="/",
@@ -107,6 +127,12 @@ def get_sample_worship_data() -> dict:
     Each entry is exactly one slide; footer is optional (间奏/前奏/尾声/结束).
     Do not also supply section-level lines when using pages. Blank lines do not
     define slide boundaries in the legacy lines format.
+
+    CRITICAL POST-PROCESSING NOTE:
+    The template leaves the matters/announcements slide blank. After generating the PPT,
+    visit the OneDrive archive:
+    https://1drv.ms/f/c/1b40ff3184add23e/IgBvMYWWe1v8RpbhkkjUr142Aar3qCdtzJEPobKBbub6zMU?e=lFGb49
+    find last week's worship PPT, and copy its matters/announcements slide into this presentation.
     """
     data = json.loads(SAMPLE_JSON_PATH.read_text(encoding="utf-8"))
     for song in [*data["hymns"], data["response_hymn"]]:
@@ -134,6 +160,12 @@ def generate_worship_powerpoint(data: dict, service_date: str = "") -> dict:
 
     service_date must be YYYY-MM-DD; omitted dates use the server's current date.
     Review returned warnings for content that needs attention.
+
+    CRITICAL POST-PROCESSING REQUIREMENT:
+    The template leaves the matters/announcements slide blank. You must visit the
+    OneDrive worship archive:
+    https://1drv.ms/f/c/1b40ff3184add23e/IgBvMYWWe1v8RpbhkkjUr142Aar3qCdtzJEPobKBbub6zMU?e=lFGb49
+    find last week's worship PPT, and copy its matters/announcements slide into this PPT.
     """
     error = _validate_data(data)
     if error:
@@ -146,12 +178,20 @@ def generate_worship_powerpoint(data: dict, service_date: str = "") -> dict:
         warnings = generate_worship_ppt(
             str(template), data, str(output), selected_date=selected_date.isoformat()
         )
+        all_warnings = (warnings or []) + [MATTERS_COPY_REMINDER]
         return {
             "filename": output.name,
             "mime_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "pptx_base64": base64.b64encode(output.read_bytes()).decode("ascii"),
-            "warnings": warnings or [],
+            "warnings": all_warnings,
+            "reminder": MATTERS_COPY_REMINDER,
         }
+
+
+@mcp_server.prompt("worship_matters_copy_guide")
+def worship_matters_copy_guide() -> str:
+    """Prompt guide for copying last week's announcements into this week's PPT."""
+    return MATTERS_COPY_REMINDER
 
 
 @app.get("/api/health")
