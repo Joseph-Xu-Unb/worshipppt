@@ -406,6 +406,14 @@ button:disabled {
   content: none;
 }
 
+.slide-preview-page-number {
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 10px;
+}
+
 .slide-editor {
   display: grid;
   gap: 12px;

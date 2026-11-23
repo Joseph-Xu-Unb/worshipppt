@@ -115,6 +115,11 @@ export function PreviewPanel({
                       <p key={`${item.id}-${index}`}>{line}</p>
                     ))}
                   </div>
+                  {(item.kind === "hymn" || item.kind === "response_hymn") && (
+                    <div className="slide-preview-page-number">
+                      {item.slideLabel.replace(/\s+/g, "")}
+                    </div>
+                  )}
                   <div className="slide-card-actions">
                     <button
                       type="button"

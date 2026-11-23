@@ -92,6 +92,90 @@ class PaginationTests(unittest.TestCase):
                             bodies.append(shape.text)
                 self.assertEqual(bodies, ["TEST_A\nTEST_B\n（间奏）", "TEST_C\nTEST_D\n结束"] * 2)
 
+    def test_hymn_page_numbers_are_centered_and_formatted_xy(self):
+        from pptx.enum.text import PP_ALIGN
+        from pptx.util import Pt
+        from src.backend.worship import generate_worship_ppt
+
+        base = get_sample_worship_data()
+        song1 = {"title": "SONG_ONE", "pages": [
+            {"lines": ["S1_P1_L1"]}, {"lines": ["S1_P2_L1"]}, {"lines": ["S1_P3_L1"]},
+        ]}
+        song2 = {"title": "SONG_TWO", "pages": [
+            {"lines": ["S2_P1_L1"]}, {"lines": ["S2_P2_L1"]},
+        ]}
+        resp = {"title": "RESP_SONG", "pages": [
+            {"lines": ["R_P1_L1"]}, {"lines": ["R_P2_L1"]}, {"lines": ["R_P3_L1"]}, {"lines": ["R_P4_L1"]},
+        ]}
+        data = copy.deepcopy(base)
+        data["hymns"] = [song1, song2]
+        data["response_hymn"] = resp
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "test_pages.pptx"
+            generate_worship_ppt(str(ROOT / "data/template.pptx"), data, str(output), "2026-11-23")
+            prs = Presentation(output)
+
+            hymn_page_texts = []
+            scripture_page_texts = []
+
+            for slide in prs.slides:
+                layout_name = slide.slide_layout.name
+                page_ph = None
+                for ph in slide.placeholders:
+                    if ph.placeholder_format.idx == 12:
+                        page_ph = ph
+                        break
+
+                if layout_name in ("Hymn", "response"):
+                    self.assertIsNotNone(page_ph, f"Slide with layout {layout_name} should have page placeholder")
+                    # Check centered alignment
+                    p = page_ph.text_frame.paragraphs[0]
+                    self.assertEqual(p.alignment, PP_ALIGN.CENTER)
+                    # Check font size in 14-18 pt range
+                    run = p.runs[0]
+                    self.assertGreaterEqual(run.font.size, Pt(14))
+                    self.assertLessEqual(run.font.size, Pt(18))
+                    # Check horizontal centering
+                    center_x = page_ph.left + page_ph.width / 2
+                    self.assertAlmostEqual(center_x, prs.slide_width / 2, delta=1000)
+                    hymn_page_texts.append(page_ph.text.strip())
+                elif layout_name in ("call_to_scripture", "theme_scripture"):
+                    if page_ph:
+                        scripture_page_texts.append(page_ph.text.strip())
+
+            # Song 1 (3 pages): 1/3, 2/3, 3/3; Song 2 (2 pages): 1/2, 2/2; Resp (4 pages): 1/4, 2/4, 3/4, 4/4
+            expected = ["1/3", "2/3", "3/3", "1/2", "2/2", "1/4", "2/4", "3/4", "4/4"]
+            self.assertEqual(hymn_page_texts, expected)
+            self.assertEqual(scripture_page_texts, [])
+
+    def test_edited_slides_hymn_page_numbers(self):
+        from src.backend.worship import generate_worship_ppt
+
+        base = get_sample_worship_data()
+        data = copy.deepcopy(base)
+        data["preview_slides"] = [
+            {"kind": "hymn", "sectionLabel": "Hymn 1", "title": "Hymn1: A", "lines": ["Line 1"]},
+            {"kind": "hymn", "sectionLabel": "Hymn 1", "title": "Hymn1: A", "lines": ["Line 2"]},
+            {"kind": "hymn", "sectionLabel": "Hymn 2", "title": "Hymn2: B", "lines": ["Line 1"]},
+            {"kind": "response_hymn", "sectionLabel": "Response Hymn", "title": "Resp: C", "lines": ["R1"]},
+            {"kind": "response_hymn", "sectionLabel": "Response Hymn", "title": "Resp: C", "lines": ["R2"]},
+        ]
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "test_edited_pages.pptx"
+            generate_worship_ppt(str(ROOT / "data/template.pptx"), data, str(output), "2026-11-23")
+            prs = Presentation(output)
+
+            hymn_page_texts = []
+            for slide in prs.slides:
+                if slide.slide_layout.name in ("Hymn", "response"):
+                    for ph in slide.placeholders:
+                        if ph.placeholder_format.idx == 12:
+                            hymn_page_texts.append(ph.text.strip())
+
+            self.assertEqual(hymn_page_texts, ["1/2", "2/2", "1/1", "1/2", "2/2"])
+
 
 if __name__ == "__main__":
     unittest.main()

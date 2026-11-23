@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from pptx import Presentation
+from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Pt
 
@@ -78,13 +79,73 @@ class WorshipPPTGenerator:
             return None
         return self.prs.slides.add_slide(layout)
 
-    def _add_paged_content(self, layout_name, title, section):
+    def _add_page_number(self, slide, page_text):
+        """Add a centered page number (e.g. '4/6') to a hymn slide."""
+        ph = None
+        for p in slide.placeholders:
+            if p.placeholder_format.idx in self.PAGE_PLACEHOLDER_IDXS:
+                ph = p
+                break
+
+        if ph is None:
+            layout = slide.slide_layout
+            l_ph = next(
+                (
+                    p
+                    for p in layout.placeholders
+                    if p.placeholder_format.idx in self.PAGE_PLACEHOLDER_IDXS
+                ),
+                None,
+            )
+            if l_ph is not None:
+                slide.shapes.clone_placeholder(l_ph)
+                for p in slide.placeholders:
+                    if p.placeholder_format.idx in self.PAGE_PLACEHOLDER_IDXS:
+                        ph = p
+                        break
+
+        if ph is not None:
+            old_top = ph.top
+            old_width = ph.width
+            old_height = ph.height
+            ph.left = (self.prs.slide_width - old_width) // 2
+            ph.top = old_top
+            ph.width = old_width
+            ph.height = old_height
+            ph.text = page_text
+            p = ph.text_frame.paragraphs[0]
+            p.alignment = PP_ALIGN.CENTER
+            if p.runs:
+                run = p.runs[0]
+                run.font.size = Pt(16)
+                run.font.name = "微软雅黑"
+                run.font.color.rgb = RGBColor(255, 255, 255)
+            return True
+
+        width = 2743200
+        height = 365125
+        left = (self.prs.slide_width - width) // 2
+        top = 6356352
+        tx_box = slide.shapes.add_textbox(left, top, width, height)
+        p = tx_box.text_frame.paragraphs[0]
+        p.text = page_text
+        p.alignment = PP_ALIGN.CENTER
+        if p.runs:
+            run = p.runs[0]
+            run.font.size = Pt(16)
+            run.font.name = "微软雅黑"
+            run.font.color.rgb = RGBColor(255, 255, 255)
+        return True
+
+    def _add_paged_content(self, layout_name, title, section, is_hymn=False):
         layout = self._find_layout(layout_name)
         if not layout:
             self._warn(f"Layout '{layout_name}' not found.")
             return
 
-        for chunk in section_pages(section):
+        pages = section_pages(section)
+        total_pages = len(pages)
+        for page_num, chunk in enumerate(pages, 1):
             slide = self.prs.slides.add_slide(layout)
 
             if slide.shapes.title:
@@ -94,9 +155,8 @@ class WorshipPPTGenerator:
 
             content_text = "\n".join(chunk)
             self._safe_fill(slide, content_text, self.BODY_PLACEHOLDER_IDXS)
-            self._safe_fill(
-                slide, str(len(self.prs.slides)), self.PAGE_PLACEHOLDER_IDXS
-            )
+            if is_hymn:
+                self._add_page_number(slide, f"{page_num}/{total_pages}")
 
     def _add_edited_slides(self, kind, layout_name):
         """Add exact slides supplied by preview mode, if present."""
@@ -109,9 +169,22 @@ class WorshipPPTGenerator:
             self._warn(f"Layout '{layout_name}' not found.")
             return True
 
-        for item in preview_slides:
-            if item["kind"] != kind:
-                continue
+        matching = [item for item in preview_slides if item.get("kind") == kind]
+        if not matching:
+            return True
+
+        is_hymn = kind in ("hymn", "response_hymn")
+        counts = {}
+        for item in matching:
+            key = item.get("sectionLabel") or item.get("title")
+            counts[key] = counts.get(key, 0) + 1
+
+        positions = {}
+        for item in matching:
+            key = item.get("sectionLabel") or item.get("title")
+            positions[key] = positions.get(key, 0) + 1
+            page_text = f"{positions[key]}/{counts[key]}"
+
             slide = self.prs.slides.add_slide(layout)
             title = item["title"].strip()
             if slide.shapes.title:
@@ -123,9 +196,8 @@ class WorshipPPTGenerator:
                 "\n".join(line for line in item["lines"] if line.strip()),
                 self.BODY_PLACEHOLDER_IDXS,
             )
-            self._safe_fill(
-                slide, str(len(self.prs.slides)), self.PAGE_PLACEHOLDER_IDXS
-            )
+            if is_hymn:
+                self._add_page_number(slide, page_text)
         return True
 
     def _rename_custom_layouts(self):
@@ -218,7 +290,9 @@ class WorshipPPTGenerator:
             return
         for i, hymn in enumerate(self.data["hymns"]):
             hymn_display_title = f"Hymn{i+1}: {hymn['title']}"
-            self._add_paged_content("Hymn", hymn_display_title, hymn)
+            self._add_paged_content(
+                "Hymn", hymn_display_title, hymn, is_hymn=True
+            )
 
     def _add_theme_scripture(self):
         self._add_layout_slide("intercessory_prayer")
@@ -241,7 +315,7 @@ class WorshipPPTGenerator:
             return
         response_title = f"回应诗: {self.data['response_hymn']['title']}"
         self._add_paged_content(
-            "response", response_title, self.data["response_hymn"]
+            "response", response_title, self.data["response_hymn"], is_hymn=True
         )
 
     def _add_static_ending(self):
