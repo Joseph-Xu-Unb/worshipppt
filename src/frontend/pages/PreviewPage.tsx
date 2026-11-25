@@ -63,8 +63,14 @@ export function PreviewPage() {
       {result && (
         <div className="notice success">
           <strong>{result.fileName}</strong> downloaded.
+          {result.mattersCopied > 0 && (
+            <span>
+              Copied {result.mattersCopied} announcement slide
+              {result.mattersCopied === 1 ? "" : "s"} from last week's PPT.
+            </span>
+          )}
           {result.warnings.length > 0 && (
-            <span>{result.warnings.length} template warning(s) were reported.</span>
+            <span>{result.warnings.length} warning(s) were reported.</span>
           )}
         </div>
       )}

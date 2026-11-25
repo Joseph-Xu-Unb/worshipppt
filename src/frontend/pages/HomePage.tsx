@@ -8,11 +8,13 @@ export function HomePage() {
   const navigate = useNavigate();
   const {
     dataFile,
+    lastWeekFile,
     serviceDate,
     error,
     validationMessage,
     canPreview,
     setServiceDate,
+    setLastWeekFile,
     handleDataFileChange,
   } = useWorshipBuilder();
 
@@ -48,6 +50,14 @@ export function HomePage() {
               }}
               helper="Structured .json"
             />
+            <FilePicker
+              id="last-week-pptx"
+              label="Last Week's PPT (optional)"
+              accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              file={lastWeekFile}
+              onChange={setLastWeekFile}
+              helper="Copies the matters/announcement slides from last week"
+            />
           </div>
 
           <div className="date-row">
@@ -68,7 +78,9 @@ export function HomePage() {
           <div className="inline-note">
             The server applies your worship data to the built-in
             {" "}
-            `data/template.pptx`, so users only need to provide the JSON file.
+            `data/template.pptx`. If you upload last week's PPT, the server copies
+            its announcement/matters slides, including pictures, tables, grouped
+            shapes, and charts.
           </div>
 
           {error && <div className="notice error">{error}</div>}

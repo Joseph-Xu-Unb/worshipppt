@@ -54,6 +54,23 @@ has fewer than four lyric lines. Blank lines are ignored, so they cannot specify
 page breaks. A marker before any lyrics is rejected because its position is
 ambiguous. Frontend preview and backend generation follow the same rules.
 
+### Copying Last Week's Announcement Slides
+
+The web app can optionally take last week's worship PPT and copy its
+announcement/matters slides into the generated deck. The copy is performed at the
+PowerPoint package level, so it preserves:
+
+- pictures and background images
+- tables
+- grouped shapes, including nested pictures and text
+- charts and their embedded Excel workbooks
+- hyperlinks and media relationships
+
+The generated deck keeps its own `matters` layout, so the template's title and
+decorations are preserved. Slide notes and layout/master definitions from the
+source deck are not copied. The source deck must use the same slide size for
+pixel-perfect placement; a warning is returned when it does not.
+
 ## Requirements
 
 - Python 3.10 or newer
@@ -92,11 +109,14 @@ http://127.0.0.1:5173
 In the web app:
 
 1. Select the worship JSON data file.
-2. Enter the service date, for example `2026-05-24`.
-3. Click `Preview Slides` to review the generated slides.
-4. (Optional) Edit titles, lyrics, reorder, insert, or delete individual slides.
-5. Click `Generate PPT`.
-6. The generated PowerPoint downloads in the browser.
+2. (Optional) Select last week's worship PPT. Its announcement/matters slides are
+   copied into the generated deck, including pictures, tables, grouped shapes, and
+   charts.
+3. Enter the service date, for example `2026-05-24`.
+4. Click `Preview Slides` to review the generated slides.
+5. (Optional) Edit titles, lyrics, reorder, insert, or delete individual slides.
+6. Click `Generate PPT`.
+7. The generated PowerPoint downloads in the browser.
 
 The downloaded file is named:
 
@@ -236,6 +256,7 @@ src/
   backend/
     app.py
     content.py
+    matters.py
     worship.py
   frontend/
     components/
@@ -257,6 +278,11 @@ The web app includes an assistant guide at `/guide/muse`. It allows church volun
 1. Extract dates, scriptures, and hymns from group messages.
 2. Retrieve complete lyrics from the church's OneDrive lyric library.
 3. Automatically validate and generate the presentation via the MCP server (`/mcp/`).
+4. Copy the announcements ("matters") slides from last week's worship PPT. The
+   agent passes last week's PPT to the MCP server as `last_week_pptx_url` (a public
+   OneDrive/SharePoint download link, for example from the browser download
+   history) or `last_week_pptx_base64`; the server copies the slides, including
+   pictures, tables, grouped shapes, charts, and embedded chart data.
 
 ## MCP server
 
@@ -270,11 +296,20 @@ Available tools:
 
 - `get_sample_worship_data`: returns example worship JSON.
 - `validate_worship_data`: checks required sections, titles, and text lines.
-- `generate_worship_powerpoint`: accepts `data` and optional `service_date`
-  (`YYYY-MM-DD`), and returns `filename`, `mime_type`, `pptx_base64`, and `warnings`.
-  The client must decode the base64 result to save the PowerPoint. Large decks
-  may exceed a client's tool response limit; the web app remains available for
-  direct downloads.
+- `generate_worship_powerpoint`: accepts `data`, optional `service_date`
+  (`YYYY-MM-DD`), and optional `last_week_pptx_url` or `last_week_pptx_base64`.
+  When a last-week deck is supplied, the server copies its announcement/matters
+  slides into the generated deck, including pictures, tables, grouped shapes,
+  charts, and embedded chart data. The download URL must be a public `https`
+  OneDrive/SharePoint link; uploads and downloads are limited to 50 MB. It returns
+  `filename`, `mime_type`, `pptx_base64`, `warnings`, `reminder`,
+  `post_generation_prompt`, `matters_copied`, and `matters_slides_copied`. The
+  client must decode the base64 result to save the PowerPoint. When no last-week
+  deck is supplied, `reminder` explains how to copy the announcements slide
+  manually and `post_generation_prompt` explains how to get last week's PPT's direct
+  download link from the browser download history (`Ctrl+J` / `chrome://downloads`).
+  Large decks may exceed a client's tool response limit; the web app remains
+  available for direct downloads.
 
 Start the server using the existing `python app.py` command after installing
 `requirements.txt`; MCP runs in the same process and Docker image. Generated

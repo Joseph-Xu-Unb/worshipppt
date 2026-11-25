@@ -22,11 +22,15 @@ export function FilePicker({
     onChange(event.target.files?.[0] ?? null);
   }
 
+  const fileKind = accept.includes(".pptx") ? "PPT File" : "JSON File";
+
   return (
     <label className="file-panel" htmlFor={id}>
       <span className="file-label">{label}</span>
       <div className="file-picker-row">
-        <span className="file-action">{file ? "Replace JSON File" : "Choose JSON File"}</span>
+        <span className="file-action">
+          {file ? `Replace ${fileKind}` : `Choose ${fileKind}`}
+        </span>
         <span className={file ? "file-name selected" : "file-name"}>
           {file ? file.name : "No file selected"}
         </span>

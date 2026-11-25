@@ -14,16 +14,25 @@ const musePrompt = `请把下面的教会群聊天记录整理成崇拜 PPT。
 5. 只有在没有可用的浏览器工具、浏览器重试后仍无法读取、页面确实要求登录或没有找到所需诗歌时，才说明具体原因，并请我上传相应诗歌文件或粘贴完整歌词。不要凭诗歌名称猜写歌词。
 
 事项汇报页复制规则：
-请前往往期崇拜 PPT 归档库（${worshipArchiveUrl}），找到上周（即距离本次崇拜日期最近的前一个主日）的 worship ppt 文件并打开或读取它，将其中的“事项报告 / 事项汇报”（matters）页内容完整复制到本周日制作的 PPT 对应事项汇报页中，确保汇报事项不留空。
+请在生成本周 PPT 时，把上周（即距离本次崇拜日期最近的前一个主日）的 worship ppt 一并提供给制作服务，由服务端复制其中的“事项报告 / 事项汇报”（matters）页，包括文字、图片、表格、分组形状和图表。优先使用上周 PPT 的直接下载链接（last_week_pptx_url）；如果已有文件内容，可使用 last_week_pptx_base64。不要只把链接发给我，也不要要求我手动复制页面。
 
 请自动整理资料、验证并调用制作服务，把最终可下载的 PowerPoint 文件直接交给我。JSON 仅供工具内部使用，不要要求我查看、下载或上传 JSON。
+在生成本周 PPT 前，请先获取上周 PPT 的直接下载链接，以便在调用 generate_worship_powerpoint 时一并传入：
+目标文件：上周主日的 worship ppt（即距离本次崇拜日期最近的前一个主日，文件名通常为该主日日期，例如 2026-11-22.pptx，来源应为 onedrive.live.com）。不要自行假定为其他文件，先核对文件名和来源。
+如果该文件已在你的浏览器中下载过，请从浏览器下载记录中取得直接下载链接，不要重新浏览 OneDrive 页面：
+1. 打开浏览器下载记录：点击浏览器右上角菜单 → 下载内容（Downloads），或按 Ctrl+J，或在地址栏输入 chrome://downloads 后回车。
+2. 在下载列表中找到上述目标文件，核对文件名和来源无误。
+3. 点击该文件条目旁的链接（🔗）图标，复制下载链接。链接格式通常为：
+   https://onedrive.live.com/personal/1b40ff3184add23e/_layouts/15/download.aspx?UniqueId=<文件GUID>
+4. 将该链接作为 last_week_pptx_url 传给 generate_worship_powerpoint，由服务端复制上周的事项汇报页；不需要自己打开、修改或另存 PPT。
+如果下载记录中没有该文件或无法取得链接，请改用往期崇拜 PPT 归档库链接（${worshipArchiveUrl}）打开并读取；取得文件后可用 last_week_pptx_base64 传给制作服务。如仍无法取得文件，请说明具体原因，不要编造事项内容。
 歌词标记排版规则：“间奏”“前奏”“尾声”“结束”等诗歌段落标记统一放在对应歌词页的末尾、该页最后一句歌词之后，不得移到下一页或下一段的开头，也不得单独占一页。位置不明确时，归到前一段歌词所在页的末尾；若无法确定对应段落，请询问，不要猜测。分页时须让标记与对应歌词保持在同一页。此规则针对诗歌中的标记，不影响崇拜流程的结束页。
 诗歌数据请使用明确分页格式：hymns 中的每首诗歌和 response_hymn 使用 {"title":"诗歌名称","pages":[{"lines":["第一句","第二句","第三句","第四句"],"footer":"间奏"},{"lines":["下一段第一句","下一段第二句"]}]}。pages 的每个元素就是一页，lines 只放该页歌词，footer 可省略，或填写“间奏”“前奏”“尾声”“结束”（可带括号）。不要同时提供诗歌顶层的 lines，也不要用空行表示分页。按原诗歌核对每页内容；每页最多四句歌词，页末标记不占歌词名额。标记必须放在所属页的 footer 中，不能放入下一页的 lines。
-交付前请检查实际生成的 PPTX：如有文件处理工具，解压并按幻灯片顺序读取每页文字，核对歌词完整性、重复段落、分页、标记位置以及事项汇报页是否已成功复制上一周内容；发现问题时修正并重新生成、复查。不要仅凭制作服务返回“生成成功”就认定排版正确。如工具无法检查文件，请明确说明未完成文件检查，不要声称已核验。
+交付前请检查实际生成的 PPTX：如有文件处理工具，解压并按幻灯片顺序读取每页文字，核对歌词完整性、重复段落、分页、标记位置，以及事项汇报页的文字、图片、表格、分组形状和图表是否已成功复制上一周内容；发现问题时修正并重新生成、复查。不要仅凭制作服务返回“生成成功”就认定排版正确。如工具无法检查文件，请明确说明未完成文件检查，不要声称已核验。
 
 供你连接制作服务：
 MCP Streamable HTTP：https://worshipppt.onrender.com/mcp/
-无需登录或 API 密钥。调用 get_sample_worship_data 查看格式，用 validate_worship_data 验证，再用 generate_worship_powerpoint 生成，service_date 使用 YYYY-MM-DD。将返回的 pptx_base64 解码为可下载的 .pptx，并说明 warnings。
+无需登录或 API 密钥。调用 get_sample_worship_data 查看格式，用 validate_worship_data 验证，再用 generate_worship_powerpoint 生成，service_date 使用 YYYY-MM-DD；把上周 PPT 下载链接作为 last_week_pptx_url 一并传入（或使用 last_week_pptx_base64），服务端会复制事项汇报页。检查返回的 matters_copied、matters_slides_copied 和 warnings；将 pptx_base64 解码为可下载的 .pptx，并说明结果。
 如连接超时，先访问 https://worshipppt.onrender.com/api/health，等服务启动后重试。启动可能需要约一分钟。`;
 
 export function MuseGuide() {
@@ -48,9 +57,10 @@ export function MuseGuide() {
           也可以让 Muse 按下方指令先用浏览器查找本次诗歌。若仍无法读取，再把完整歌词复制给 Muse，或下载诗歌文件后上传给它。
         </p>
         <p className="guide-note">
-          <strong>事项汇报：</strong>指令已要求 Muse 自动前往
+          <strong>事项汇报：</strong>指令已要求 Muse 把上周 PPT 的下载链接作为
+          <code>last_week_pptx_url</code> 传给制作服务，由服务端复制
           <a href={worshipArchiveUrl} target="_blank" rel="noreferrer">往期崇拜 PPT 归档库（OneDrive）</a>
-          读取上周的 PPT 并将事项汇报页复制到本周 PPT 中。
+          中上周 PPT 的事项汇报页，包括文字、图片、表格、分组形状和图表。若上周 PPT 已在 Muse 的浏览器中下载过，指令还会要求它从下载记录（Ctrl+J）复制直接下载链接，避免重新打开 OneDrive。
         </p>
         <p className="guide-note">
           歌词库及归档库为公开分享，可先尝试匿名访问。若 Muse 的文本抓取失败，请让它使用可用的浏览器工具打开链接并等待加载；

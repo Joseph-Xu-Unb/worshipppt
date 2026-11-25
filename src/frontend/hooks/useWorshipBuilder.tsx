@@ -18,6 +18,7 @@ const today = new Date().toISOString().slice(0, 10);
 
 type WorshipBuilderContextValue = {
   dataFile: SelectedFile;
+  lastWeekFile: SelectedFile;
   serviceDate: string;
   isGenerating: boolean;
   error: string;
@@ -26,6 +27,7 @@ type WorshipBuilderContextValue = {
   preview: WorshipSlidePreview[];
   canPreview: boolean;
   setServiceDate: (value: string) => void;
+  setLastWeekFile: (file: SelectedFile) => void;
   handleDataFileChange: (file: SelectedFile) => Promise<void>;
   updatePreviewSlide: (id: string, title: string, lines: string[]) => void;
   deletePreviewSlide: (id: string) => void;
@@ -56,6 +58,7 @@ async function readResponseError(response: Response, fallback: string) {
 
 export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
   const [dataFile, setDataFile] = useState<SelectedFile>(null);
+  const [lastWeekFile, setLastWeekFile] = useState<SelectedFile>(null);
   const [serviceDate, setServiceDate] = useState(today);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
@@ -122,6 +125,9 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
       formData.append("data", dataFile);
       formData.append("date", serviceDate);
       formData.append("slides", JSON.stringify(preview));
+      if (lastWeekFile) {
+        formData.append("last_week_pptx", lastWeekFile);
+      }
 
       const response = await fetch(apiUrl("/api/generate"), {
         method: "POST",
@@ -145,7 +151,9 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
 
       const rawWarnings = response.headers.get("X-Worship-Warnings");
       const warnings = rawWarnings ? (JSON.parse(rawWarnings) as string[]) : [];
-      setResult({ fileName, warnings });
+      const mattersCopied =
+        Number(response.headers.get("X-Worship-Matters-Copied") || "0") || 0;
+      setResult({ fileName, warnings, mattersCopied });
       return true;
     } catch (caughtError) {
       setError(
@@ -238,6 +246,7 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
 
   function resetBuilder() {
     setDataFile(null);
+    setLastWeekFile(null);
     setServiceDate(today);
     setError("");
     setValidationMessage("");
@@ -249,6 +258,7 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
     <WorshipBuilderContext.Provider
       value={{
         dataFile,
+        lastWeekFile,
         serviceDate,
         isGenerating,
         error,
@@ -257,6 +267,7 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
         preview,
         canPreview,
         setServiceDate,
+        setLastWeekFile,
         handleDataFileChange,
         updatePreviewSlide,
         deletePreviewSlide,

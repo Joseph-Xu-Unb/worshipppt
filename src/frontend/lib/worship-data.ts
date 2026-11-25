@@ -23,6 +23,7 @@ export type SelectedFile = File | null;
 export type GenerationResult = {
   fileName: string;
   warnings: string[];
+  mattersCopied: number;
 };
 
 export type WorshipSlidePreview = {
