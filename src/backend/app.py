@@ -24,7 +24,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from src.backend.content import is_marker, section_pages, validate_section
-from src.backend.matters import copy_matters_slides
+from src.backend.matters import copy_matters_slides, list_matters_candidates
 from src.backend.worship import generate_worship_ppt
 
 
@@ -76,6 +76,23 @@ MATTERS_COPY_GUIDE_PREFIX = (
     "If that is not possible, follow these manual instructions:\n\n"
 )
 
+MATTERS_CANDIDATES_PROMPT = (
+    "Python 未能在上周 PPT 中自动识别事项汇报页（旧模板可能没有名为 matters 的版式）。"
+    "请查看返回的 matters_candidates：每项包含 slide_number（从 1 开始的页码）、"
+    "layout、text_preview，以及是否有图片/表格/图表/分组。"
+    "根据这些内容判断哪些是上周的事项汇报/公告页，然后用同样的 last_week_pptx_url "
+    "或 last_week_pptx_base64，并传入 last_week_slide_numbers=[页码,...] 再次调用 "
+    "generate_worship_powerpoint。若候选都不正确，请直接读取上周 PPT 的内容，"
+    "按事项汇报的实际内容选择页码；不要编造事项内容。"
+)
+
+MATTERS_NO_CANDIDATES_PROMPT = (
+    "Python 未能在上周 PPT 中找到事项汇报页，也无法列出候选页。"
+    "请直接读取上周 PPT，按内容找到上周的事项汇报/公告页，并用 "
+    "last_week_slide_numbers=[页码,...] 再次调用 generate_worship_powerpoint；"
+    "若无法读取文件，请说明具体原因，不要编造事项内容。"
+)
+
 MAX_LAST_WEEK_PPTX_BYTES = 50 * 1024 * 1024
 
 MCP_INSTRUCTIONS = (
@@ -86,6 +103,9 @@ MCP_INSTRUCTIONS = (
     "To have the server copy last week's matters slide for you, pass last_week_pptx_url (a public https "
     "OneDrive/SharePoint download link) or last_week_pptx_base64 (the .pptx bytes) to generate_worship_powerpoint. "
     "The server copies text, pictures, tables, grouped shapes, charts, and embedded chart data.\n"
+    "If auto-detection fails (for example, an older template without a 'matters' layout), the response "
+    "returns matters_candidates with slide_number, layout, text_preview, and content flags. Choose the "
+    "correct 1-based slide numbers and retry with last_week_slide_numbers=[...].\n"
     "If you cannot supply the file, the response returns instructions for copying it manually: "
     f"go to the worship PPT archive ({WORSHIP_ARCHIVE_URL}), locate last week's worship PPT, and copy its "
     "matters/announcements content into the new presentation. If last week's PPT was already downloaded in your "
@@ -261,11 +281,22 @@ def _last_week_pptx_from_inputs(url: str, encoded: str) -> bytes | None:
 
 
 def _copy_matters_into(
-    output_path: str | Path, last_week_pptx: bytes | None
+    output_path: str | Path,
+    last_week_pptx: bytes | None,
+    slide_numbers: list[int] | None = None,
 ) -> tuple[int, list[str]]:
     if not last_week_pptx:
         return 0, []
-    return copy_matters_slides(output_path, last_week_pptx)
+    return copy_matters_slides(output_path, last_week_pptx, slide_numbers)
+
+
+def _matters_candidates(last_week_pptx: bytes | None) -> list[dict]:
+    if not last_week_pptx:
+        return []
+    try:
+        return list_matters_candidates(Presentation(BytesIO(last_week_pptx)))
+    except Exception:
+        return []
 
 
 @mcp_server.tool()
@@ -312,6 +343,7 @@ def generate_worship_powerpoint(
     service_date: str = "",
     last_week_pptx_url: str = "",
     last_week_pptx_base64: str = "",
+    last_week_slide_numbers: list[int] | None = None,
 ) -> dict:
     """Generate a PPTX with the bundled template. Decode pptx_base64 to save the file.
 
@@ -324,6 +356,13 @@ def generate_worship_powerpoint(
     and embedded chart data are copied; the generated deck's matters layout is kept.
     If neither is supplied, matters stays blank and the response includes manual-copy
     instructions.
+
+    Older templates may not use a layout named 'matters'. If auto-detection fails,
+    the response includes matters_candidates with 1-based slide_number, layout,
+    text_preview, and content flags. Choose the announcement slides and call again
+    with the same source plus last_week_slide_numbers=[...] to copy those exact
+    slides. If no candidates are usable, inspect last week's PPT content yourself
+    and choose the slide numbers; do not invent announcement content.
 
     CRITICAL POST-PROCESSING REQUIREMENT:
     The template leaves the matters/announcements slide blank. If you did not pass a
@@ -340,6 +379,11 @@ def generate_worship_powerpoint(
     last_week_pptx = _last_week_pptx_from_inputs(
         last_week_pptx_url.strip(), last_week_pptx_base64.strip()
     )
+    if last_week_slide_numbers and not last_week_pptx:
+        raise ValueError(
+            "last_week_slide_numbers requires last_week_pptx_url or "
+            "last_week_pptx_base64."
+        )
     with tempfile.TemporaryDirectory(prefix="worship-mcp-") as directory:
         template = Path(directory) / "template.pptx"
         output = Path(directory) / f"Worship_{selected_date.isoformat()}.pptx"
@@ -349,7 +393,7 @@ def generate_worship_powerpoint(
         )
         try:
             matters_copied, matters_warnings = _copy_matters_into(
-                output, last_week_pptx
+                output, last_week_pptx, last_week_slide_numbers
             )
         except Exception as exc:
             raise ValueError(
@@ -357,9 +401,21 @@ def generate_worship_powerpoint(
             ) from exc
 
         all_warnings = (warnings or []) + matters_warnings
+        candidates: list[dict] = []
         if matters_copied:
             reminder = MATTERS_COPIED_REMINDER.format(count=matters_copied)
             post_generation_prompt = ""
+        elif last_week_pptx:
+            candidates = _matters_candidates(last_week_pptx)
+            if candidates:
+                reminder = (
+                    "未能自动识别上周 PPT 的事项汇报页。请查看 "
+                    "matters_candidates 并选择正确页码后重试。"
+                )
+                post_generation_prompt = MATTERS_CANDIDATES_PROMPT
+            else:
+                reminder = "未能找到上周 PPT 的事项汇报页，请按内容手动选择页码。"
+                post_generation_prompt = MATTERS_NO_CANDIDATES_PROMPT
         else:
             all_warnings.append(POST_GENERATION_REMINDER)
             reminder = POST_GENERATION_REMINDER
@@ -374,6 +430,7 @@ def generate_worship_powerpoint(
             "post_generation_prompt": post_generation_prompt,
             "matters_copied": matters_copied > 0,
             "matters_slides_copied": matters_copied,
+            "matters_candidates": candidates,
         }
 
 
@@ -450,6 +507,7 @@ async def generate(
     slides: str = Form(default=""),
     last_week_pptx: UploadFile | None = File(default=None),
     last_week_pptx_url: str = Form(default=""),
+    last_week_slide_numbers: str = Form(default=""),
 ):
     """Generate a worship PPT from the bundled template and uploaded JSON file."""
     selected_date = selected_date.strip() or date.today().isoformat()
@@ -494,6 +552,31 @@ async def generate(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    slide_numbers = None
+    if last_week_slide_numbers.strip():
+        try:
+            slide_numbers = [
+                int(part)
+                for part in last_week_slide_numbers.split(",")
+                if part.strip()
+            ]
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="last_week_slide_numbers must be comma-separated integers.",
+            ) from exc
+        if not slide_numbers:
+            raise HTTPException(
+                status_code=400,
+                detail="last_week_slide_numbers must contain at least one number.",
+            )
+        if not last_week_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail="last_week_slide_numbers requires last_week_pptx or "
+                "last_week_pptx_url.",
+            )
+
     if slides:
         try:
             preview_slides = json.loads(slides)
@@ -534,7 +617,7 @@ async def generate(
         )
         try:
             matters_copied, matters_warnings = _copy_matters_into(
-                output_path, last_week_bytes
+                output_path, last_week_bytes, slide_numbers
             )
         except Exception as exc:
             raise HTTPException(

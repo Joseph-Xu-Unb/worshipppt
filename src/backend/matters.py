@@ -28,8 +28,90 @@ REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 SKIPPED_RELTYPES = {RT.SLIDE_LAYOUT, RT.NOTES_SLIDE, RT.NOTES_MASTER}
 
 
+ANNOUNCEMENT_LAYOUT_KEYWORDS = (
+    "matter",
+    "announce",
+    "notice",
+    "事项",
+    "报告",
+    "汇报",
+    "公告",
+)
+ANNOUNCEMENT_TEXT_KEYWORDS = (
+    "事项",
+    "报告",
+    "汇报",
+    "公告",
+    "announce",
+    "matter",
+    "notice",
+)
+NON_ANNOUNCEMENT_LAYOUTS = {
+    "cover",
+    "prepare",
+    "slogan",
+    "order",
+    "call_to_scripture",
+    "hymn",
+    "praise_prayer",
+    "apostles_creed",
+    "intercessory_prayer",
+    "child_dropoff_reminder",
+    "theme_scripture",
+    "sermon",
+    "response",
+    "offering",
+    "praying",
+    "lords_prayer",
+    "ode_to_the_trinity",
+    "benediction",
+    "child_pickup_reminder",
+    "结束",
+    "wishyouwell",
+    "holy_communion_1",
+    "holy_communion_2",
+    "reminder",
+    "announcements_welcome_banner",
+}
+
+
 def _layout_name(slide) -> str:
-    return slide.slide_layout.name.strip().lower()
+    """Return a normalized layout name (lowercase, no numeric prefix)."""
+    name = slide.slide_layout.name.strip().lower()
+    return re.sub(r"^\d+_", "", name)
+
+
+def _slide_text(slide) -> str:
+    """Return all visible text on a slide, including table cells."""
+    parts: list[str] = []
+    for shape in slide.shapes:
+        if shape.has_text_frame and shape.text.strip():
+            parts.append(shape.text.strip())
+        if shape.has_table:
+            parts.extend(
+                cell.text.strip()
+                for row in shape.table.rows
+                for cell in row.cells
+                if cell.text.strip()
+            )
+    return "\n".join(parts)
+
+
+def _content_flags(slide) -> dict[str, bool]:
+    return {
+        "has_pictures": any(
+            shape.shape_type == MSO_SHAPE_TYPE.PICTURE for shape in slide.shapes
+        ),
+        "has_tables": any(
+            getattr(shape, "has_table", False) for shape in slide.shapes
+        ),
+        "has_charts": any(
+            getattr(shape, "has_chart", False) for shape in slide.shapes
+        ),
+        "has_groups": any(
+            shape.shape_type == MSO_SHAPE_TYPE.GROUP for shape in slide.shapes
+        ),
+    }
 
 
 def _slide_has_content(slide) -> bool:
@@ -55,7 +137,12 @@ def _slide_has_content(slide) -> bool:
 
 
 def find_matters_slides(prs: Presentation) -> list:
-    """Return the source deck's announcement slides in presentation order."""
+    """Return the source deck's announcement slides in presentation order.
+
+    New decks use a layout named ``matters``. Older templates may use custom
+    layouts, so this also checks layout/text keywords and, as a last resort, the
+    position between the benediction and closing slides.
+    """
     slides = list(prs.slides)
 
     exact = [
@@ -66,28 +153,118 @@ def find_matters_slides(prs: Presentation) -> list:
     if exact:
         return exact
 
-    announced = [
-        slide
-        for slide in slides
-        if "announce" in _layout_name(slide) and _slide_has_content(slide)
-    ]
-    if announced:
-        return announced
-
-    # Older decks may not use a dedicated matters layout. Avoid the worship-order
-    # slide, which also mentions "事项报告 / Announcements".
-    text_matches = [
+    layout_matches = [
         slide
         for slide in slides
         if _layout_name(slide) != "order"
+        and "banner" not in _layout_name(slide)
         and any(
-            label in "\n".join(
-                shape.text for shape in slide.shapes if shape.has_text_frame
-            )
-            for label in ("事项报告", "事项汇报")
+            keyword in _layout_name(slide)
+            for keyword in ANNOUNCEMENT_LAYOUT_KEYWORDS
+        )
+        and _slide_has_content(slide)
+    ]
+    if layout_matches:
+        return layout_matches
+
+    # Older decks may not name the layout after announcements. Avoid the
+    # worship-order slide, the decorative welcome banner, and known worship
+    # sections that might merely mention a report.
+    text_matches = [
+        slide
+        for slide in slides
+        if _layout_name(slide) not in NON_ANNOUNCEMENT_LAYOUTS
+        and _layout_name(slide) != "order"
+        and "banner" not in _layout_name(slide)
+        and _slide_has_content(slide)
+        and any(
+            keyword in _slide_text(slide).lower()
+            for keyword in ANNOUNCEMENT_TEXT_KEYWORDS
         )
     ]
-    return text_matches
+    if text_matches:
+        return text_matches
+
+    # Positional fallback: content between benediction and the closing slides.
+    # Only auto-copy when exactly one candidate exists; otherwise let the agent
+    # choose from the returned candidates.
+    benediction_index = next(
+        (
+            index
+            for index, slide in enumerate(slides)
+            if "benediction" in _layout_name(slide)
+        ),
+        None,
+    )
+    if benediction_index is not None:
+        closing_index = next(
+            (
+                index
+                for index, slide in enumerate(slides)
+                if _layout_name(slide) in {"结束", "wishyouwell", "closing remarks"}
+            ),
+            None,
+        )
+        end = closing_index if closing_index is not None else len(slides)
+        positional = [
+            slide
+            for slide in slides[benediction_index + 1 : end]
+            if _slide_has_content(slide)
+            and _layout_name(slide) not in NON_ANNOUNCEMENT_LAYOUTS
+        ]
+        if len(positional) == 1:
+            return positional
+
+    return []
+
+
+def list_matters_candidates(
+    prs: Presentation, limit: int = 10
+) -> list[dict]:
+    """Return ranked candidate announcement slides for an agent to choose from.
+
+    Each item includes a 1-based ``slide_number`` so it can be passed back as
+    ``last_week_slide_numbers``.
+    """
+    slides = list(prs.slides)
+    total = len(slides)
+    candidates: list[dict] = []
+
+    for index, slide in enumerate(slides):
+        name = _layout_name(slide)
+        if not _slide_has_content(slide) or name == "order":
+            continue
+
+        text = _slide_text(slide)
+        lowered = text.lower()
+        score = 0
+        if any(keyword in name for keyword in ANNOUNCEMENT_LAYOUT_KEYWORDS):
+            score += 5
+        if any(keyword in lowered for keyword in ANNOUNCEMENT_TEXT_KEYWORDS):
+            score += 4
+        if name in NON_ANNOUNCEMENT_LAYOUTS:
+            score -= 5
+        if total:
+            if index >= total * 0.7:
+                score += 2
+            if index >= total * 0.85:
+                score += 1
+
+        candidates.append(
+            {
+                "slide_number": index + 1,
+                "layout": slide.slide_layout.name,
+                "score": score,
+                "text_preview": text[:300],
+                **_content_flags(slide),
+            }
+        )
+
+    candidates.sort(
+        key=lambda item: (item["score"], item["slide_number"]), reverse=True
+    )
+    positive = [item for item in candidates if item["score"] >= 0]
+    return (positive or candidates)[:limit]
 
 
 def _partname_template(partname) -> str:
@@ -254,8 +431,13 @@ def _copy_slide_into(dst_slide, source_slide, warnings: list[str]) -> None:
 def copy_matters_slides(
     target_pptx: str | Path,
     source_pptx: bytes | str | Path,
+    source_slide_numbers: list[int] | None = None,
 ) -> tuple[int, list[str]]:
     """Copy announcement slides from ``source_pptx`` into ``target_pptx``.
+
+    ``source_slide_numbers`` is an optional list of 1-based slide numbers. When
+    supplied, exactly those slides are copied (useful when an older template has
+    no recognizable matters layout). Otherwise slides are auto-detected.
 
     Returns ``(copied_slide_count, warnings)``. The first source announcement
     slide replaces the generated deck's blank matters slide; any additional
@@ -270,13 +452,33 @@ def copy_matters_slides(
         else Path(source_pptx).read_bytes()
     )
     source_prs = Presentation(BytesIO(source_bytes))
-    source_slides = find_matters_slides(source_prs)
-    if not source_slides:
-        return 0, [
-            "No announcement/matters slide was found in last week's PPT; "
-            "the generated matters slide was left blank."
+
+    explicit_selection = bool(source_slide_numbers)
+    if explicit_selection:
+        numbers = list(dict.fromkeys(source_slide_numbers))
+        total = len(source_prs.slides)
+        invalid = [
+            number
+            for number in numbers
+            if not isinstance(number, int) or not 1 <= number <= total
         ]
-    if any(_layout_name(slide) != "matters" for slide in source_slides):
+        if invalid:
+            raise ValueError(
+                "last_week_slide_numbers must be 1-based slide numbers between "
+                f"1 and {total}; invalid: {invalid}."
+            )
+        source_slides = [source_prs.slides[number - 1] for number in numbers]
+    else:
+        source_slides = find_matters_slides(source_prs)
+        if not source_slides:
+            return 0, [
+                "No announcement/matters slide was found in last week's PPT; "
+                "the generated matters slide was left blank."
+            ]
+
+    if not explicit_selection and any(
+        _layout_name(slide) != "matters" for slide in source_slides
+    ):
         warnings.append(
             "Some copied announcement slides did not use the 'matters' layout; "
             "check their placement in the generated deck."

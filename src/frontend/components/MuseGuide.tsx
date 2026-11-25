@@ -26,13 +26,14 @@ const musePrompt = `请把下面的教会群聊天记录整理成崇拜 PPT。
    https://onedrive.live.com/personal/1b40ff3184add23e/_layouts/15/download.aspx?UniqueId=<文件GUID>
 4. 将该链接作为 last_week_pptx_url 传给 generate_worship_powerpoint，由服务端复制上周的事项汇报页；不需要自己打开、修改或另存 PPT。
 如果下载记录中没有该文件或无法取得链接，请改用往期崇拜 PPT 归档库链接（${worshipArchiveUrl}）打开并读取；取得文件后可用 last_week_pptx_base64 传给制作服务。如仍无法取得文件，请说明具体原因，不要编造事项内容。
+如果服务返回 matters_copied=false 并带有 matters_candidates（旧模板可能没有名为 matters 的版式），请查看每项的 slide_number（从 1 开始）、layout、text_preview 以及图片/表格/图表/分组标记，判断哪些是上周的事项汇报/公告页；然后用相同的 last_week_pptx_url 或 last_week_pptx_base64，并传入 last_week_slide_numbers=[页码,...] 再次调用 generate_worship_powerpoint。若候选都不正确或没有候选，请直接读取上周 PPT 内容，按实际事项汇报选择页码；不要编造事项内容。
 歌词标记排版规则：“间奏”“前奏”“尾声”“结束”等诗歌段落标记统一放在对应歌词页的末尾、该页最后一句歌词之后，不得移到下一页或下一段的开头，也不得单独占一页。位置不明确时，归到前一段歌词所在页的末尾；若无法确定对应段落，请询问，不要猜测。分页时须让标记与对应歌词保持在同一页。此规则针对诗歌中的标记，不影响崇拜流程的结束页。
 诗歌数据请使用明确分页格式：hymns 中的每首诗歌和 response_hymn 使用 {"title":"诗歌名称","pages":[{"lines":["第一句","第二句","第三句","第四句"],"footer":"间奏"},{"lines":["下一段第一句","下一段第二句"]}]}。pages 的每个元素就是一页，lines 只放该页歌词，footer 可省略，或填写“间奏”“前奏”“尾声”“结束”（可带括号）。不要同时提供诗歌顶层的 lines，也不要用空行表示分页。按原诗歌核对每页内容；每页最多四句歌词，页末标记不占歌词名额。标记必须放在所属页的 footer 中，不能放入下一页的 lines。
 交付前请检查实际生成的 PPTX：如有文件处理工具，解压并按幻灯片顺序读取每页文字，核对歌词完整性、重复段落、分页、标记位置，以及事项汇报页的文字、图片、表格、分组形状和图表是否已成功复制上一周内容；发现问题时修正并重新生成、复查。不要仅凭制作服务返回“生成成功”就认定排版正确。如工具无法检查文件，请明确说明未完成文件检查，不要声称已核验。
 
 供你连接制作服务：
 MCP Streamable HTTP：https://worshipppt.onrender.com/mcp/
-无需登录或 API 密钥。调用 get_sample_worship_data 查看格式，用 validate_worship_data 验证，再用 generate_worship_powerpoint 生成，service_date 使用 YYYY-MM-DD；把上周 PPT 下载链接作为 last_week_pptx_url 一并传入（或使用 last_week_pptx_base64），服务端会复制事项汇报页。检查返回的 matters_copied、matters_slides_copied 和 warnings；将 pptx_base64 解码为可下载的 .pptx，并说明结果。
+无需登录或 API 密钥。调用 get_sample_worship_data 查看格式，用 validate_worship_data 验证，再用 generate_worship_powerpoint 生成，service_date 使用 YYYY-MM-DD；把上周 PPT 下载链接作为 last_week_pptx_url 一并传入（或使用 last_week_pptx_base64），服务端会复制事项汇报页。检查返回的 matters_copied、matters_slides_copied、matters_candidates 和 warnings；若自动识别失败，按候选页内容选择页码并用 last_week_slide_numbers=[页码,...] 重试。将 pptx_base64 解码为可下载的 .pptx，并说明结果。
 如连接超时，先访问 https://worshipppt.onrender.com/api/health，等服务启动后重试。启动可能需要约一分钟。`;
 
 export function MuseGuide() {

@@ -71,6 +71,12 @@ decorations are preserved. Slide notes and layout/master definitions from the
 source deck are not copied. The source deck must use the same slide size for
 pixel-perfect placement; a warning is returned when it does not.
 
+New decks use a layout named `matters`. Older decks may not, so the server also
+matches announcement-related layout/text and the position between the benediction
+and closing slides. If detection is still ambiguous, the MCP response returns
+`matters_candidates`; the agent can choose the correct 1-based slide numbers and
+retry with `last_week_slide_numbers`.
+
 ## Requirements
 
 - Python 3.10 or newer
@@ -282,7 +288,9 @@ The web app includes an assistant guide at `/guide/muse`. It allows church volun
    agent passes last week's PPT to the MCP server as `last_week_pptx_url` (a public
    OneDrive/SharePoint download link, for example from the browser download
    history) or `last_week_pptx_base64`; the server copies the slides, including
-   pictures, tables, grouped shapes, charts, and embedded chart data.
+   pictures, tables, grouped shapes, charts, and embedded chart data. If an older
+   template has no recognizable matters layout, the response lists candidate
+   slides and the agent retries with `last_week_slide_numbers`.
 
 ## MCP server
 
@@ -297,19 +305,26 @@ Available tools:
 - `get_sample_worship_data`: returns example worship JSON.
 - `validate_worship_data`: checks required sections, titles, and text lines.
 - `generate_worship_powerpoint`: accepts `data`, optional `service_date`
-  (`YYYY-MM-DD`), and optional `last_week_pptx_url` or `last_week_pptx_base64`.
-  When a last-week deck is supplied, the server copies its announcement/matters
-  slides into the generated deck, including pictures, tables, grouped shapes,
-  charts, and embedded chart data. The download URL must be a public `https`
-  OneDrive/SharePoint link; uploads and downloads are limited to 50 MB. It returns
-  `filename`, `mime_type`, `pptx_base64`, `warnings`, `reminder`,
-  `post_generation_prompt`, `matters_copied`, and `matters_slides_copied`. The
-  client must decode the base64 result to save the PowerPoint. When no last-week
-  deck is supplied, `reminder` explains how to copy the announcements slide
-  manually and `post_generation_prompt` explains how to get last week's PPT's direct
-  download link from the browser download history (`Ctrl+J` / `chrome://downloads`).
-  Large decks may exceed a client's tool response limit; the web app remains
-  available for direct downloads.
+  (`YYYY-MM-DD`), optional `last_week_pptx_url` or `last_week_pptx_base64`, and
+  optional `last_week_slide_numbers` (1-based slide numbers). When a last-week
+  deck is supplied, the server copies its announcement/matters slides into the
+  generated deck, including pictures, tables, grouped shapes, charts, and embedded
+  chart data. The download URL must be a public `https` OneDrive/SharePoint link;
+  uploads and downloads are limited to 50 MB. It returns `filename`, `mime_type`,
+  `pptx_base64`, `warnings`, `reminder`, `post_generation_prompt`,
+  `matters_copied`, `matters_slides_copied`, and `matters_candidates`. The client
+  must decode the base64 result to save the PowerPoint.
+  - Older templates may not have a layout named `matters`. If auto-detection
+    fails, `matters_candidates` lists candidate slides with `slide_number`,
+    `layout`, `text_preview`, and picture/table/chart/group flags. Choose the
+    correct slides and retry with `last_week_slide_numbers=[...]`; if no candidate
+    is usable, the prompt instructs the agent to inspect the source deck itself.
+  - When no last-week deck is supplied, `reminder` explains how to copy the
+    announcements slide manually and `post_generation_prompt` explains how to get
+    last week's PPT's direct download link from the browser download history
+    (`Ctrl+J` / `chrome://downloads`).
+  - Large decks may exceed a client's tool response limit; the web app remains
+    available for direct downloads.
 
 Start the server using the existing `python app.py` command after installing
 `requirements.txt`; MCP runs in the same process and Docker image. Generated

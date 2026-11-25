@@ -19,7 +19,7 @@ from src.backend.app import (
     get_sample_worship_data,
 )
 from src.backend.content import section_pages, split_lines, validate_section
-from src.backend.matters import copy_matters_slides
+from src.backend.matters import copy_matters_slides, list_matters_candidates
 from src.backend.worship import generate_worship_ppt
 
 
@@ -269,6 +269,40 @@ class MattersCopyTests(unittest.TestCase):
             if slide.slide_layout.name.strip().lower() == "matters"
         ]
 
+    def _build_old_template_deck(
+        self, directory: Path, content_slides: int = 1
+    ) -> Path:
+        """Build a deck with no 'matters' layout, like the old template."""
+        prs = Presentation(str(ROOT / "data/template.pptx"))
+
+        def add_layout(name):
+            layout = next(
+                layout
+                for layout in prs.slide_layouts
+                if layout.name.strip().lower() == name
+            )
+            return prs.slides.add_slide(layout)
+
+        add_layout("benediction")
+        for index in range(content_slides):
+            slide = add_layout("13_custom layout")
+            slide.shapes.add_textbox(
+                914400, 914400, 4572000, 914400
+            ).text = f"OLD_CONTENT_{index}"
+        add_layout("结束")
+
+        path = directory / f"old_template_{content_slides}.pptx"
+        prs.save(str(path))
+        return path
+
+    def _matters_text(self, target: Path) -> str:
+        matters = self._matters_slides(Presentation(str(target)))
+        return "\n".join(
+            shape.text
+            for shape in matters[0].shapes
+            if shape.has_text_frame and shape.text.strip()
+        )
+
     def test_copy_preserves_pictures_tables_groups_and_charts(self):
         with tempfile.TemporaryDirectory() as directory:
             directory = Path(directory)
@@ -413,6 +447,81 @@ class MattersCopyTests(unittest.TestCase):
                 if shape.has_text_frame and shape.text.strip()
             ]
             self.assertIn("MATTERS_TEXT_0", texts)
+
+    def test_old_template_positional_detection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            source = self._build_old_template_deck(directory, content_slides=1)
+            target = self._generate_target(directory)
+
+            copied, warnings = copy_matters_slides(target, source.read_bytes())
+            self.assertEqual(copied, 1)
+            self.assertTrue(
+                any("did not use the 'matters' layout" in w for w in warnings)
+            )
+            self.assertIn("OLD_CONTENT_0", self._matters_text(target))
+
+    def test_ambiguous_old_template_candidates_and_explicit_selection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            source = self._build_old_template_deck(directory, content_slides=2)
+            target = self._generate_target(directory)
+
+            copied, warnings = copy_matters_slides(target, source.read_bytes())
+            self.assertEqual(copied, 0)
+            self.assertTrue(any("No announcement" in w for w in warnings))
+
+            candidates = list_matters_candidates(Presentation(str(source)))
+            numbers = [
+                item["slide_number"]
+                for item in candidates
+                if any(
+                    marker in item["text_preview"]
+                    for marker in ("OLD_CONTENT_0", "OLD_CONTENT_1")
+                )
+            ]
+            self.assertEqual(sorted(numbers), [3, 4])
+
+            copied, _ = copy_matters_slides(
+                target, source.read_bytes(), source_slide_numbers=[3]
+            )
+            self.assertEqual(copied, 1)
+            self.assertIn("OLD_CONTENT_0", self._matters_text(target))
+
+    def test_mcp_returns_candidates_for_old_template_and_retries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            source = self._build_old_template_deck(directory, content_slides=2)
+            encoded = base64.b64encode(source.read_bytes()).decode("ascii")
+
+            result = generate_worship_powerpoint(
+                get_sample_worship_data(),
+                "2026-11-29",
+                last_week_pptx_base64=encoded,
+            )
+            self.assertFalse(result["matters_copied"])
+            self.assertTrue(result["matters_candidates"])
+            self.assertIn(
+                "last_week_slide_numbers", result["post_generation_prompt"]
+            )
+            numbers = [
+                item["slide_number"]
+                for item in result["matters_candidates"]
+                if "OLD_CONTENT_0" in item["text_preview"]
+            ]
+            self.assertTrue(numbers)
+
+            retry = generate_worship_powerpoint(
+                get_sample_worship_data(),
+                "2026-11-29",
+                last_week_pptx_base64=encoded,
+                last_week_slide_numbers=numbers[:1],
+            )
+            self.assertTrue(retry["matters_copied"])
+            self.assertEqual(retry["matters_slides_copied"], 1)
+            output = directory / "retry.pptx"
+            output.write_bytes(base64.b64decode(retry["pptx_base64"]))
+            self.assertIn("OLD_CONTENT_0", self._matters_text(output))
 
     def test_onedrive_url_allowlist(self):
         self.assertTrue(
