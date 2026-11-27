@@ -742,7 +742,7 @@ class GraphClient:
                 f"无法下载 OneDrive 文件：{_sanitize_message(str(exc))}"
             ) from None
 
-        if not is_allowed_onedrive_url(location):
+        if not is_allowed_download_url(location):
             raise OneDriveError("OneDrive 下载地址不是允许的主机，已拒绝。")
         download_request = urllib.request.Request(
             location, headers={"User-Agent": "WorshipPPT/1.0"}
@@ -901,6 +901,22 @@ class GraphClient:
         return web_url
 
 
+def is_allowed_download_url(url: str) -> bool:
+    """Allow OneDrive/SharePoint and Microsoft consumer download hosts."""
+    if is_allowed_onedrive_url(url):
+        return True
+    parsed = urllib.parse.urlparse(url)
+    host = (parsed.hostname or "").lower()
+    return (
+        parsed.scheme == "https"
+        and bool(host)
+        and (
+            host == "microsoftpersonalcontent.com"
+            or host.endswith(".microsoftpersonalcontent.com")
+        )
+    )
+
+
 def _validate_download(data: bytes) -> bytes:
     if len(data) > MAX_LAST_WEEK_PPTX_BYTES:
         raise OneDriveError("下载的 PPT 超过 50 MB 上限。")
@@ -915,7 +931,8 @@ class OneDriveArchive:
         self.settings = settings
         self.tokens = TokenProvider(settings)
         self.graph = GraphClient(settings, self.tokens)
-        self._lock = threading.Lock()
+        # list_files() holds this lock and calls root(), which re-acquires it.
+        self._lock = threading.RLock()
         self._root: DriveItemRef | None = None
         self._listing: TreeListing | None = None
         self._listing_at = 0.0

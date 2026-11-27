@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 import time
 import unittest
 import urllib.error
@@ -19,6 +20,7 @@ from src.backend.onedrive import (
     auto_last_week_pptx,
     encode_share_url,
     get_status,
+    is_allowed_download_url,
     is_safe_upload_name,
     parse_dates_from_filename,
     previous_sunday,
@@ -124,6 +126,24 @@ class DateTests(unittest.TestCase):
         self.assertFalse(is_safe_upload_name("2026-11-22.pptx/evil"))
         self.assertFalse(is_safe_upload_name("../2026-11-22.pptx"))
         self.assertTrue(is_safe_upload_name("2026-11-22.pptx"))
+
+    def test_download_hosts(self):
+        self.assertTrue(
+            is_allowed_download_url(
+                "https://my.microsoftpersonalcontent.com/personal/abc/items/def"
+            )
+        )
+        self.assertTrue(
+            is_allowed_download_url(
+                "https://public.dm.files.1drv.com/personal/abc/file.pptx"
+            )
+        )
+        self.assertFalse(
+            is_allowed_download_url("https://example.test/file.pptx")
+        )
+        self.assertFalse(
+            is_allowed_download_url("http://my.microsoftpersonalcontent.com/file")
+        )
 
     def test_share_encoding(self):
         encoded = encode_share_url("https://1drv.ms/f/abc")
@@ -343,6 +363,34 @@ class ArchiveTests(unittest.TestCase):
         self.assertTrue(result["uploaded"])
         self.assertEqual(result["filename"], "2026-11-29.pptx")
         self.assertEqual(result["share_url"], "https://1drv.ms/u/share")
+
+    def test_list_files_does_not_deadlock_when_root_is_reentrant(self):
+        archive = OneDriveArchive(settings())
+        archive._root = DriveItemRef(
+            "drive1", "folder1", "Archive", True, "Archive"
+        )
+        archive._listing = TreeListing()
+        archive._listing_at = 0
+
+        class StubGraph:
+            def list_tree(self, root):
+                return TreeListing()
+
+        archive.graph = StubGraph()
+        outcome = {}
+
+        def run():
+            try:
+                outcome["listing"] = archive.list_files(force=True)
+            except Exception as exc:  # pragma: no cover - defensive
+                outcome["error"] = exc
+
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        worker.join(2)
+        self.assertFalse(worker.is_alive(), "list_files deadlocked")
+        self.assertNotIn("error", outcome)
+        self.assertEqual(outcome["listing"].files, [])
 
     def test_upload_failure_is_soft(self):
         archive = OneDriveArchive(settings())
