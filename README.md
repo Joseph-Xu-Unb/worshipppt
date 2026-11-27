@@ -488,8 +488,9 @@ The web app includes an assistant guide at `/guide/muse`. It allows church volun
    PPT generation does not upload songs automatically.
 5. Keep its stored instructions in sync: call `get_muse_prompt` or
    `check_muse_prompt` before generating, replace stale instructions with the
-   returned prompt, and pass the current `muse_prompt_version`. Missing or stale
-   versions are rejected.
+   returned prompt, and pass the current `muse_prompt_version`. If the version is
+   missing or stale, generation returns `prompt_update_required=true` with the
+   latest `current_prompt` to adopt.
 
 ## MCP server
 
@@ -557,9 +558,10 @@ a short hash version from the prompt template and resource URLs.
 - Before generating, an agent should call `get_muse_prompt` or `check_muse_prompt`.
   If its stored prompt is older or different, it must replace its stored
   instructions with the returned prompt.
-- `generate_worship_powerpoint` requires `muse_prompt_version`. A missing or stale
-  version is rejected with an error that includes the current version and the
-  update instruction.
+- `generate_worship_powerpoint` requires `muse_prompt_version`. If it is missing
+  or stale, the tool does not generate a deck; it returns
+  `prompt_update_required=true` with the complete `current_prompt` and the current
+  version so the agent can update its stored instructions and retry.
 - The MCP server cannot read Muse's internal stored prompt, so this is an explicit
   version handshake: the agent must call the check/get tool and self-report the
   version. The server enforces the version, not the agent's private prompt text.

@@ -173,8 +173,9 @@ MCP_INSTRUCTIONS = (
     f"PROMPT SYNC: current Muse prompt version is {MUSE_PROMPT_VERSION}. The server cannot read "
     "Muse's internal stored prompt. Before generating, call check_muse_prompt or get_muse_prompt; "
     "if your stored prompt version differs, replace your stored instructions with the returned "
-    "prompt. Always pass muse_prompt_version to generate_worship_powerpoint; missing or stale "
-    "versions are rejected.\n"
+    "prompt. Always pass muse_prompt_version to generate_worship_powerpoint. If it is missing or "
+    "stale, the tool does not generate; it returns prompt_update_required=true and pushes the "
+    "complete current_prompt in the response so you can update and retry.\n"
     "ONLY IF last week's matters cannot be found or copied (no unique archive file, no matters slide, "
     "no candidates, or a copy error): stop and ask the user whether to (a) continue without matters "
     "(then retry with use_onedrive=false and upload_to_onedrive=true, leaving matters blank) or "
@@ -565,8 +566,9 @@ def get_sample_worship_data() -> dict:
     link and manual fallback instructions.
 
     PROMPT SYNC: before generating, call get_muse_prompt or check_muse_prompt and
-    pass the current muse_prompt_version to generate_worship_powerpoint. Missing or
-    stale versions are rejected so Muse updates its stored instructions.
+    pass the current muse_prompt_version to generate_worship_powerpoint. If the
+    version is missing or stale, the generation tool returns
+    prompt_update_required=true with the complete current_prompt so Muse can update.
     """
     data = json.loads(SAMPLE_JSON_PATH.read_text(encoding="utf-8"))
     for song in [*data["hymns"], data["response_hymn"]]:
@@ -680,16 +682,28 @@ def generate_worship_powerpoint(
     DELL computers contains <service_date>.pptx.
 
     Prompt sync: call get_muse_prompt or check_muse_prompt before generating. You
-    must pass the current muse_prompt_version; missing or stale versions are
-    rejected so Muse replaces its stored instructions with the current prompt.
+    must pass the current muse_prompt_version. If it is missing or stale, the tool
+    does not generate a deck; it returns prompt_update_required=true with the
+    complete current_prompt so Muse can replace its stored instructions and retry.
     """
-    if muse_prompt_version.strip() != MUSE_PROMPT_VERSION:
-        raise ValueError(
-            "Muse prompt is out of date. Call get_muse_prompt or "
-            "check_muse_prompt, replace your stored instructions with the "
-            "returned prompt, then retry with "
-            f'muse_prompt_version="{MUSE_PROMPT_VERSION}".'
-        )
+    received_version = muse_prompt_version.strip()
+    if received_version != MUSE_PROMPT_VERSION:
+        return {
+            "ok": False,
+            "prompt_update_required": True,
+            "received_version": received_version,
+            "current_version": MUSE_PROMPT_VERSION,
+            "current_prompt": MUSE_PROMPT,
+            "action": (
+                "Replace your stored Muse instructions with current_prompt "
+                "exactly, then retry generate_worship_powerpoint with "
+                f'muse_prompt_version="{MUSE_PROMPT_VERSION}".'
+            ),
+            "message": (
+                "PPT was not generated because the Muse prompt is missing or out "
+                "of date. The complete latest prompt is in current_prompt."
+            ),
+        }
     error = _validate_data(data)
     if error:
         raise ValueError(error)

@@ -580,19 +580,22 @@ class MusePromptTests(unittest.TestCase):
             check_muse_prompt(prompt_text="old prompt")["up_to_date"]
         )
 
-    def test_generate_rejects_missing_or_stale_prompt_version(self):
-        with self.assertRaises(ValueError) as missing:
-            generate_worship_powerpoint(
-                get_sample_worship_data(), "2026-11-29"
-            )
-        self.assertIn("out of date", str(missing.exception))
-
-        with self.assertRaises(ValueError):
-            generate_worship_powerpoint(
-                get_sample_worship_data(),
-                "2026-11-29",
-                muse_prompt_version="stale",
-            )
+    def test_generate_pushes_prompt_when_version_missing_or_stale(self):
+        for version in ("", "stale"):
+            with self.subTest(version=version):
+                result = generate_worship_powerpoint(
+                    get_sample_worship_data(),
+                    "2026-11-29",
+                    muse_prompt_version=version,
+                )
+                self.assertFalse(result["ok"])
+                self.assertTrue(result["prompt_update_required"])
+                self.assertEqual(
+                    result["current_version"], MUSE_PROMPT_VERSION
+                )
+                self.assertEqual(result["current_prompt"], MUSE_PROMPT)
+                self.assertIn("current_prompt", result["action"])
+                self.assertNotIn("pptx_base64", result)
 
 
 if __name__ == "__main__":
