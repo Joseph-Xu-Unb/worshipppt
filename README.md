@@ -293,12 +293,14 @@ Setup:
 3. Open **Actions → Renew OneDrive refresh token → Run workflow** to run it once
    manually and confirm it succeeds. The monthly schedule then keeps it fresh.
 
-The workflow uses `scripts/renew_onedrive_token.py`, which only updates those two
-Render variables via the single-variable API. It prints statuses, never token
-values. If it fails with `invalid_grant`, the refresh token was revoked or expired:
-run `onedrive_login.py` again, update Render, and the next workflow run will use the
-new seed. On Render's free plan, the next cold start picks up the updated Render
-environment; an always-on paid service should be redeployed after the token update.
+The workflow uses `scripts/renew_onedrive_token.py`, which updates those two Render
+variables via the single-variable API and then triggers a Render deploy so the
+service reloads the new token immediately. It prints statuses, never token values.
+If the deploy trigger fails, the token is still saved and the next Render deploy or
+cold start picks it up; the log tells you to deploy manually. If the workflow fails
+with `invalid_grant`, the refresh token was revoked or expired: run
+`onedrive_login.py` again, update Render, and the next workflow run will use the new
+seed.
 
 GitHub Actions usage for this monthly job is negligible; public repositories do not
 consume paid minutes.

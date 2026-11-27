@@ -166,6 +166,26 @@ def render_set_env(
     )
 
 
+def render_deploy(
+    api_key: str,
+    service_id: str,
+    *,
+    opener=None,
+) -> None:
+    """Trigger a deploy so the service reloads the updated environment."""
+    url = (
+        f"{RENDER_API}/services/{urllib.parse.quote(service_id, safe='')}"
+        "/deploys"
+    )
+    _open_json(
+        "POST",
+        url,
+        headers={"Authorization": f"Bearer {api_key}"},
+        body={"clearCache": "do_not_clear"},
+        opener=opener,
+    )
+
+
 def refresh_refresh_token(
     client_id: str,
     tenant: str,
@@ -272,6 +292,15 @@ def main() -> int:
             "OneDrive 刷新令牌已更新到 Render，签发日期："
             f"{date.today().isoformat()}。"
         )
+        try:
+            render_deploy(api_key, service_id)
+            print("已触发 Render 部署，让新令牌生效。")
+        except RenewError as exc:
+            print(
+                f"令牌已更新，但触发 Render 部署失败：{exc}。"
+                "请在 Render 手动 Deploy 使新令牌立即生效。",
+                file=sys.stderr,
+            )
         return 0
     except RenewError as exc:
         print(f"续期失败：{exc}", file=sys.stderr)

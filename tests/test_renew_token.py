@@ -64,6 +64,16 @@ class RenderEnvTests(unittest.TestCase):
         self.assertIn("/services/srv-123/env-vars/", opener.requests[0].full_url)
         self.assertIn("Bearer api-key", opener.requests[0].get_header("Authorization"))
 
+    def test_deploy_triggers_service_deploy(self):
+        opener = FakeOpener([FakeResponse({"id": "dep-1"})])
+        renew.render_deploy("api-key", "srv-123", opener=opener)
+        request = opener.requests[0]
+        self.assertEqual(request.method, "POST")
+        self.assertIn("/services/srv-123/deploys", request.full_url)
+        self.assertEqual(
+            json.loads(request.data), {"clearCache": "do_not_clear"}
+        )
+
     def test_find_service_by_name(self):
         opener = FakeOpener(
             [
