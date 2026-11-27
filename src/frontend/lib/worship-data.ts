@@ -51,6 +51,7 @@ export type UploadMetadata = {
   uploaded: boolean;
   filename: string;
   web_url: string;
+  view_url?: string;
   share_url: string;
   error: string;
   warnings?: string[];

@@ -284,7 +284,10 @@ variable remains the seed.
   `last_week_slide_numbers`.
 - The MCP result includes `last_week_source`, `last_week_filename`,
   `last_week_archive_candidates`, `uploaded_to_onedrive`, `uploaded_filename`,
-  `uploaded_web_url`, `uploaded_share_url`, and `upload_error`.
+  `uploaded_web_url`, `uploaded_view_url`, `uploaded_share_url`, and `upload_error`.
+  `uploaded_share_url` is a no-login `download=1` link that returns the PPTX
+  directly; `uploaded_view_url` is the OneDrive view link and may require a
+  Microsoft sign-in for Office previews.
 
 ### Costs and security
 
@@ -446,8 +449,10 @@ Available tools:
     creates an anonymous view link. It returns `last_week_source`,
     `last_week_filename`, `auto_last_week_attempted`, `auto_last_week_error`,
     `last_week_archive_candidates`, `uploaded_to_onedrive`, `uploaded_filename`,
-    `uploaded_web_url`, `uploaded_share_url`, and `upload_error`, in addition to
-    the existing fields.
+    `uploaded_web_url`, `uploaded_view_url`, `uploaded_share_url`, and
+    `upload_error`, in addition to the existing fields. `uploaded_share_url` adds
+    `download=1` to the anonymous link so it downloads the PPTX without a sign-in;
+    `uploaded_view_url` may require a Microsoft sign-in.
   - Explicit `last_week_pptx_url`/`last_week_pptx_base64` (or a REST upload)
     overrides automatic retrieval. The URL must be a public `https`
     OneDrive/SharePoint link; uploads and downloads are limited to 50 MB.

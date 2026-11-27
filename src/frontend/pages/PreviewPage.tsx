@@ -85,7 +85,7 @@ export function PreviewPage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    分享链接
+                    分享/下载链接
                   </a>
                   <button
                     type="button"
@@ -98,6 +98,16 @@ export function PreviewPage() {
                   >
                     复制链接
                   </button>
+                  {result.upload.view_url &&
+                    result.upload.view_url !== result.upload.share_url && (
+                      <a
+                        href={result.upload.view_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        在 OneDrive 查看（可能需登录）
+                      </a>
+                    )}
                 </>
               ) : result.upload.web_url ? (
                 <a href={result.upload.web_url} target="_blank" rel="noreferrer">

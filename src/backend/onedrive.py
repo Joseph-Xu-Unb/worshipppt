@@ -900,6 +900,64 @@ class GraphClient:
             raise OneDriveUploadError("OneDrive 没有返回分享链接。")
         return web_url
 
+    def make_anonymous_download_url(
+        self,
+        view_url: str,
+        *,
+        timeout: float | None = None,
+        opener=None,
+    ) -> str:
+        """Turn an anonymous view link into a no-login ``download=1`` link.
+
+        OneDrive's Office preview can still ask for a Microsoft sign-in.  A
+        ``download=1`` canonical URL returns the PPTX directly without a session;
+        this is the link the assistant should send to the user.
+        """
+        if not is_allowed_onedrive_url(view_url):
+            raise OneDriveError("分享链接不是允许的 OneDrive 主机。")
+
+        request = urllib.request.Request(
+            view_url, headers={"User-Agent": "WorshipPPT/1.0"}
+        )
+        redirect_opener = opener or urllib.request.build_opener(
+            _NoRedirectHandler()
+        )
+        final_url = view_url
+        try:
+            with redirect_opener.open(
+                request, timeout=timeout or self._settings.timeout
+            ) as response:
+                final_url = response.geturl() or view_url
+        except urllib.error.HTTPError as exc:
+            if exc.code in REDIRECT_CODES:
+                location = exc.headers.get("Location") or ""
+                if location:
+                    final_url = urllib.parse.urljoin(view_url, location)
+            else:
+                raise OneDriveError(
+                    f"OneDrive 分享链接解析失败（HTTP {exc.code}）。"
+                ) from None
+        except (urllib.error.URLError, OSError) as exc:
+            raise OneDriveError(
+                f"OneDrive 分享链接解析失败：{_sanitize_message(str(exc))}"
+            ) from None
+
+        if not is_allowed_onedrive_url(final_url):
+            raise OneDriveError("分享链接重定向到了非 OneDrive 主机，已拒绝。")
+        parts = urllib.parse.urlsplit(final_url)
+        query = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+        if not any(key.lower() == "download" for key, _ in query):
+            query.append(("download", "1"))
+        return urllib.parse.urlunsplit(
+            (
+                parts.scheme,
+                parts.netloc,
+                parts.path,
+                urllib.parse.urlencode(query),
+                parts.fragment,
+            )
+        )
+
 
 def is_allowed_download_url(url: str) -> bool:
     """Allow OneDrive/SharePoint and Microsoft consumer download hosts."""
@@ -1019,6 +1077,7 @@ class OneDriveArchive:
                 "uploaded": False,
                 "filename": "",
                 "web_url": "",
+                "view_url": "",
                 "share_url": "",
                 "error": "OneDrive 写回未启用。",
                 "warnings": [],
@@ -1028,6 +1087,7 @@ class OneDriveArchive:
                 "uploaded": False,
                 "filename": "",
                 "web_url": "",
+                "view_url": "",
                 "share_url": "",
                 "error": "当前 OneDrive 权限不含 Files.ReadWrite，不能写回。",
                 "warnings": [],
@@ -1056,17 +1116,27 @@ class OneDriveArchive:
             )
             item_id = str(uploaded.get("id") or "")
             web_url = str(uploaded.get("webUrl") or "")
+            view_url = ""
             share_url = ""
             try:
-                share_url = self.graph.create_share_link(drive_id, item_id)
+                view_url = self.graph.create_share_link(drive_id, item_id)
             except OneDriveError as exc:
                 warnings.append(
                     f"文件已写回，但创建分享链接失败：{exc}"
                 )
+            if view_url:
+                try:
+                    share_url = self.graph.make_anonymous_download_url(view_url)
+                except OneDriveError as exc:
+                    warnings.append(
+                        f"文件已写回，但创建匿名下载链接失败：{exc}"
+                    )
+                    share_url = view_url
             return {
                 "uploaded": True,
                 "filename": str(uploaded.get("name") or filename),
                 "web_url": web_url,
+                "view_url": view_url,
                 "share_url": share_url,
                 "error": "",
                 "warnings": warnings,
@@ -1076,6 +1146,7 @@ class OneDriveArchive:
                 "uploaded": False,
                 "filename": filename,
                 "web_url": "",
+                "view_url": "",
                 "share_url": "",
                 "error": str(exc),
                 "warnings": warnings,
@@ -1085,6 +1156,7 @@ class OneDriveArchive:
                 "uploaded": False,
                 "filename": filename,
                 "web_url": "",
+                "view_url": "",
                 "share_url": "",
                 "error": "OneDrive 写回时发生未知错误。",
                 "warnings": warnings,

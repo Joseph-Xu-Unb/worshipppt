@@ -141,8 +141,9 @@ MCP_INSTRUCTIONS = (
     "The server looks in the church archive for the strictly previous Sunday's <YYYY-MM-DD>.pptx, "
     "copies its matters/announcements slides, uploads the new deck back to the archive as "
     "<service_date>.pptx, creates an anonymous view link, and returns uploaded_share_url. "
-    "After a successful generation, present uploaded_share_url to the user. Do not ask the user to visit "
-    "OneDrive or use browser download history when automatic mode succeeds.\n"
+    "After a successful generation, present uploaded_share_url to the user; it is a no-login "
+    "download=1 link that downloads the PPTX directly. uploaded_view_url may require a Microsoft sign-in. "
+    "Do not ask the user to visit OneDrive or use browser download history when automatic mode succeeds.\n"
     "If the response has last_week_archive_candidates or auto_last_week_error, choose a filename and retry "
     "with last_week_filename=\"...\", or provide an explicit last_week_pptx_url/last_week_pptx_base64. "
     "If matters_candidates is returned for an older template, retry with last_week_slide_numbers=[...]. "
@@ -394,6 +395,7 @@ def _upload_deck(
         "uploaded": False,
         "filename": "",
         "web_url": "",
+        "view_url": "",
         "share_url": "",
         "error": "",
         "warnings": [],
@@ -481,6 +483,7 @@ def _upload_metadata(upload: dict) -> str:
             "uploaded": bool(upload.get("uploaded")),
             "filename": upload.get("filename") or "",
             "web_url": upload.get("web_url") or "",
+            "view_url": upload.get("view_url") or "",
             "share_url": upload.get("share_url") or "",
             "error": upload.get("error") or "",
             "warnings": upload.get("warnings") or [],
@@ -544,8 +547,10 @@ def generate_worship_powerpoint(
     strictly previous Sunday's <YYYY-MM-DD>.pptx in the church OneDrive archive,
     copy its matters/announcements slides, upload the final deck back to the
     archive, and create an anonymous view link. The response includes
-    last_week_source, last_week_filename, uploaded_share_url, and related fields.
-    Present uploaded_share_url to the user when it is present.
+    last_week_source, last_week_filename, uploaded_share_url, uploaded_view_url,
+    and related fields. uploaded_share_url is a no-login download=1 link; present it
+    to the user when it is present. uploaded_view_url is the OneDrive view link and
+    may require a Microsoft sign-in.
 
     Explicit last_week_pptx_url or last_week_pptx_base64 overrides automatic
     retrieval. If the archive has multiple matching files, pass last_week_filename
@@ -599,6 +604,7 @@ def generate_worship_powerpoint(
         "uploaded_to_onedrive": bool(upload.get("uploaded")),
         "uploaded_filename": upload.get("filename") or "",
         "uploaded_web_url": upload.get("web_url") or "",
+        "uploaded_view_url": upload.get("view_url") or "",
         "uploaded_share_url": upload.get("share_url") or "",
         "upload_error": upload.get("error") or "",
     }

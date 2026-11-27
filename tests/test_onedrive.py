@@ -297,6 +297,22 @@ class GraphTests(unittest.TestCase):
             "https://1drv.ms/u/share",
         )
 
+    def test_anonymous_download_url_appends_download(self):
+        location = (
+            "https://onedrive.live.com/:p:/g/personal/ABC/TOKEN"
+            "?resid=ABC%21s123&redeem=YWJj"
+        )
+        opener = FakeOpener(
+            [FakeHTTPError(301, headers={"Location": location})]
+        )
+        graph = GraphClient(settings(), tokens=StubTokens(), opener=FakeOpener([]))
+        url = graph.make_anonymous_download_url(
+            "https://1drv.ms/p/c/ABC/TOKEN", opener=opener
+        )
+        self.assertIn("download=1", url)
+        self.assertIn("redeem=YWJj", url)
+        self.assertTrue(url.startswith("https://onedrive.live.com/"))
+
 
 class ArchiveTests(unittest.TestCase):
     def _archive_with_files(self, files):
@@ -358,11 +374,44 @@ class ArchiveTests(unittest.TestCase):
             def create_share_link(self, drive_id, item_id):
                 return "https://1drv.ms/u/share"
 
+            def make_anonymous_download_url(self, view_url):
+                return view_url + "?download=1"
+
         archive.graph = StubGraph()
         result = archive.upload_generated_deck(date(2026, 11, 29), b"PK-test")
         self.assertTrue(result["uploaded"])
         self.assertEqual(result["filename"], "2026-11-29.pptx")
+        self.assertEqual(result["view_url"], "https://1drv.ms/u/share")
+        self.assertEqual(
+            result["share_url"], "https://1drv.ms/u/share?download=1"
+        )
+
+    def test_upload_falls_back_to_view_link(self):
+        archive = OneDriveArchive(settings())
+        archive._root = DriveItemRef("drive1", "folder1", "Archive", True, "Archive")
+        archive._listing = TreeListing()
+        archive._listing_at = time.time()
+
+        class StubGraph:
+            def upload_file(self, folder, filename, content):
+                return {
+                    "id": "item1",
+                    "name": filename,
+                    "webUrl": "https://onedrive.live.com/item",
+                    "parentReference": {"driveId": "drive1"},
+                }
+
+            def create_share_link(self, drive_id, item_id):
+                return "https://1drv.ms/u/share"
+
+            def make_anonymous_download_url(self, view_url):
+                raise onedrive.OneDriveError("download link failed")
+
+        archive.graph = StubGraph()
+        result = archive.upload_generated_deck(date(2026, 11, 29), b"PK-test")
+        self.assertTrue(result["uploaded"])
         self.assertEqual(result["share_url"], "https://1drv.ms/u/share")
+        self.assertTrue(any("匿名下载" in w for w in result["warnings"]))
 
     def test_list_files_does_not_deadlock_when_root_is_reentrant(self):
         archive = OneDriveArchive(settings())
