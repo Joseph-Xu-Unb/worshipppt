@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -9,7 +10,10 @@ import {
   buildPreview,
   parseWorshipData,
   type GenerationResult,
+  type LastWeekMetadata,
+  type OneDriveStatus,
   type SelectedFile,
+  type UploadMetadata,
   type WorshipSlidePreview,
 } from "../lib/worship-data";
 import { apiUrl } from "../lib/app-config";
@@ -26,8 +30,13 @@ type WorshipBuilderContextValue = {
   result: GenerationResult | null;
   preview: WorshipSlidePreview[];
   canPreview: boolean;
+  oneDriveStatus: OneDriveStatus | null;
+  useOneDrive: boolean;
+  uploadToOneDrive: boolean;
   setServiceDate: (value: string) => void;
   setLastWeekFile: (file: SelectedFile) => void;
+  setUseOneDrive: (value: boolean) => void;
+  setUploadToOneDrive: (value: boolean) => void;
   handleDataFileChange: (file: SelectedFile) => Promise<void>;
   updatePreviewSlide: (id: string, title: string, lines: string[]) => void;
   deletePreviewSlide: (id: string) => void;
@@ -56,6 +65,16 @@ async function readResponseError(response: Response, fallback: string) {
   return text.trim() || fallback;
 }
 
+function readJsonHeader<T>(headers: Headers, name: string): T | undefined {
+  const raw = headers.get(name);
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return undefined;
+  }
+}
+
 export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
   const [dataFile, setDataFile] = useState<SelectedFile>(null);
   const [lastWeekFile, setLastWeekFile] = useState<SelectedFile>(null);
@@ -65,6 +84,45 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
   const [validationMessage, setValidationMessage] = useState("");
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [preview, setPreview] = useState<WorshipSlidePreview[]>([]);
+  const [oneDriveStatus, setOneDriveStatus] = useState<OneDriveStatus | null>(null);
+  const [useOneDrive, setUseOneDrive] = useState(true);
+  const [uploadToOneDrive, setUploadToOneDrive] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 8000);
+
+    fetch(apiUrl("/api/onedrive/status"), {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("OneDrive status unavailable");
+        return (await response.json()) as OneDriveStatus;
+      })
+      .then((status) => {
+        if (cancelled) return;
+        setOneDriveStatus(status);
+        if (!status.configured) {
+          setUseOneDrive(false);
+          setUploadToOneDrive(false);
+        } else {
+          setUseOneDrive(status.auto_enabled);
+          setUploadToOneDrive(status.upload_enabled);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setOneDriveStatus(null);
+      })
+      .finally(() => window.clearTimeout(timer));
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   const canPreview = useMemo(
     () => Boolean(dataFile && serviceDate && preview.length > 0 && !isGenerating),
@@ -125,6 +183,11 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
       formData.append("data", dataFile);
       formData.append("date", serviceDate);
       formData.append("slides", JSON.stringify(preview));
+      formData.append(
+        "use_onedrive",
+        String(lastWeekFile ? false : useOneDrive),
+      );
+      formData.append("upload_to_onedrive", String(uploadToOneDrive));
       if (lastWeekFile) {
         formData.append("last_week_pptx", lastWeekFile);
       }
@@ -153,7 +216,15 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
       const warnings = rawWarnings ? (JSON.parse(rawWarnings) as string[]) : [];
       const mattersCopied =
         Number(response.headers.get("X-Worship-Matters-Copied") || "0") || 0;
-      setResult({ fileName, warnings, mattersCopied });
+      const lastWeek = readJsonHeader<LastWeekMetadata>(
+        response.headers,
+        "X-Worship-Last-Week-Metadata",
+      );
+      const upload = readJsonHeader<UploadMetadata>(
+        response.headers,
+        "X-Worship-Upload-Metadata",
+      );
+      setResult({ fileName, warnings, mattersCopied, lastWeek, upload });
       return true;
     } catch (caughtError) {
       setError(
@@ -252,6 +323,8 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
     setValidationMessage("");
     setResult(null);
     setPreview([]);
+    setUseOneDrive(oneDriveStatus ? oneDriveStatus.auto_enabled : true);
+    setUploadToOneDrive(oneDriveStatus ? oneDriveStatus.upload_enabled : true);
   }
 
   return (
@@ -266,8 +339,13 @@ export function WorshipBuilderProvider({ children }: { children: ReactNode }) {
         result,
         preview,
         canPreview,
+        oneDriveStatus,
+        useOneDrive,
+        uploadToOneDrive,
         setServiceDate,
         setLastWeekFile,
+        setUseOneDrive,
+        setUploadToOneDrive,
         handleDataFileChange,
         updatePreviewSlide,
         deletePreviewSlide,

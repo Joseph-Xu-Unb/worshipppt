@@ -1,9 +1,14 @@
 node_modules
 dist
 venv
+.venv
 __pycache__
 *.pyc
 *.pyo
 *.log
 .git
+.env
+.env.*
+onedrive.env
+*.token
 Worship_2026-03-08.pptx

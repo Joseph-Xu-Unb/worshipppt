@@ -2,6 +2,7 @@ import base64
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -24,6 +25,16 @@ from src.backend.worship import generate_worship_ppt
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def setUpModule():
+    """Keep the existing suite offline even if the developer has OneDrive env vars."""
+    for key in list(os.environ):
+        if key.startswith("ONEDRIVE_"):
+            os.environ.pop(key, None)
+    from src.backend.onedrive import reset_onedrive_cache_for_tests
+
+    reset_onedrive_cache_for_tests()
 
 
 class PaginationTests(unittest.TestCase):

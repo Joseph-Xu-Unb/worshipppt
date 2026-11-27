@@ -304,6 +304,109 @@ button:disabled {
   line-height: 1.55;
 }
 
+.onedrive-status {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: "Trebuchet MS", Verdana, sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.onedrive-status strong {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.onedrive-status.warning {
+  border-color: #d9b36c;
+  background: #fdf7e7;
+  color: #6d5321;
+}
+
+.onedrive-status.error {
+  border-color: #d99a9a;
+  background: #fdf0f0;
+  color: #87301c;
+}
+
+.auto-last-week {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.toggle-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.toggle-row input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+  accent-color: var(--accent-deep);
+}
+
+.toggle-row span {
+  display: grid;
+  gap: 2px;
+}
+
+.toggle-row strong {
+  color: var(--ink);
+  font-family: "Trebuchet MS", Verdana, sans-serif;
+  font-size: 0.92rem;
+}
+
+.toggle-row small,
+.toggle-note {
+  color: var(--muted);
+  font-family: "Trebuchet MS", Verdana, sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.toggle-note {
+  margin: 0;
+}
+
+.share-link {
+  overflow-wrap: anywhere;
+}
+
+.share-link a {
+  margin: 0 6px;
+  color: var(--accent-deep);
+  font-weight: 700;
+}
+
+.share-link button {
+  height: 30px;
+  margin-left: 6px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+}
+
 .notice {
   max-width: 720px;
   margin: 0 auto;

@@ -63,10 +63,59 @@ export function PreviewPage() {
       {result && (
         <div className="notice success">
           <strong>{result.fileName}</strong> downloaded.
-          {result.mattersCopied > 0 && (
+          {result.lastWeek?.source === "onedrive" && result.mattersCopied > 0 && (
+            <span>
+              已从 OneDrive 文件 <strong>{result.lastWeek.filename}</strong> 复制{" "}
+              {result.mattersCopied} 页事项汇报。
+            </span>
+          )}
+          {result.lastWeek?.source !== "onedrive" && result.mattersCopied > 0 && (
             <span>
               Copied {result.mattersCopied} announcement slide
               {result.mattersCopied === 1 ? "" : "s"} from last week's PPT.
+            </span>
+          )}
+          {result.upload?.uploaded && (
+            <span className="share-link">
+              已写回 OneDrive：<strong>{result.upload.filename}</strong>。
+              {result.upload.share_url ? (
+                <>
+                  <a
+                    href={result.upload.share_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    分享链接
+                  </a>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      if (result.upload?.share_url) {
+                        void navigator.clipboard.writeText(result.upload.share_url);
+                      }
+                    }}
+                  >
+                    复制链接
+                  </button>
+                </>
+              ) : result.upload.web_url ? (
+                <a href={result.upload.web_url} target="_blank" rel="noreferrer">
+                  打开文件
+                </a>
+              ) : null}
+            </span>
+          )}
+          {result.upload?.error && (
+            <span>OneDrive 写回失败：{result.upload.error}</span>
+          )}
+          {result.lastWeek?.auto_error && (
+            <span>自动读取 OneDrive 失败：{result.lastWeek.auto_error}</span>
+          )}
+          {result.lastWeek && result.lastWeek.candidates.length > 0 && (
+            <span>
+              候选文件：
+              {result.lastWeek.candidates.map((candidate) => candidate.name).join("、")}
             </span>
           )}
           {result.warnings.length > 0 && (

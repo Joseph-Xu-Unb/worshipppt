@@ -3,28 +3,34 @@
 from __future__ import annotations
 
 import base64
-import binascii
 import json
 import os
 import tempfile
-import urllib.error
-import urllib.request
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from datetime import date
 from io import BytesIO
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from pptx import Presentation
+from starlette.concurrency import run_in_threadpool
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
+from src.backend import onedrive
 from src.backend.content import is_marker, section_pages, validate_section
 from src.backend.matters import copy_matters_slides, list_matters_candidates
+from src.backend.pptx_inputs import (
+    MAX_LAST_WEEK_PPTX_BYTES,
+    decode_base64_pptx as _decode_pptx_base64,
+    download_public_pptx as _download_pptx,
+    is_allowed_onedrive_url as _is_allowed_onedrive_url,
+    validate_pptx_bytes as _validate_pptx_bytes,
+)
 from src.backend.worship import generate_worship_ppt
 
 
@@ -36,6 +42,7 @@ DEFAULT_TEMPLATE_PATH = DATA_DIR / "template.pptx"
 SAMPLE_JSON_PATH = DATA_DIR / "sample_worship_data.json"
 SAMPLE_PPT_PATH = DATA_DIR / "2026-05-17.pptx"
 REQUIRED_SECTIONS = ("call_to_worship", "hymns", "theme_scripture", "response_hymn")
+PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
 WORSHIP_ARCHIVE_URL = (
     "https://1drv.ms/f/c/1b40ff3184add23e/IgBvMYWWe1v8RpbhkkjUr142Aar3qCdtzJEPobKBbub6zMU?e=lFGb49"
@@ -70,10 +77,12 @@ MATTERS_COPIED_REMINDER = (
 )
 
 MATTERS_COPY_GUIDE_PREFIX = (
-    "Preferred: pass last_week_pptx_url or last_week_pptx_base64 to "
-    "generate_worship_powerpoint. The server copies the matters slides, including "
-    "pictures, tables, grouped shapes, and charts.\n"
-    "If that is not possible, follow these manual instructions:\n\n"
+    "Preferred: let the server retrieve last week's deck from the church OneDrive "
+    "automatically. Call generate_worship_powerpoint with service_date; the server "
+    "copies the matters slides, writes the new deck back to the archive, and returns "
+    "uploaded_share_url. Explicit last_week_pptx_url or last_week_pptx_base64 "
+    "overrides automatic retrieval.\n"
+    "If automatic mode is unavailable, follow these manual instructions:\n\n"
 )
 
 MATTERS_CANDIDATES_PROMPT = (
@@ -93,24 +102,56 @@ MATTERS_NO_CANDIDATES_PROMPT = (
     "若无法读取文件，请说明具体原因，不要编造事项内容。"
 )
 
-MAX_LAST_WEEK_PPTX_BYTES = 50 * 1024 * 1024
+AUTO_LAST_WEEK_REMINDER = (
+    "未能自动从 OneDrive 读取上周 PPT：{error}。本次生成的事项汇报页留空。"
+    "请根据 last_week_archive_candidates 选择文件，或手动上传上周 PPT/提供下载链接。"
+)
+
+AUTO_LAST_WEEK_PROMPT = (
+    "自动读取 OneDrive 未唯一确定上周文件。请查看 last_week_archive_candidates"
+    "（name、date、modified、size），选择正确文件名后用 last_week_filename=\"...\""
+    "并保留相同 service_date 重试；如果候选都不正确，请用户手动上传或提供链接，"
+    "不要编造事项内容。"
+)
+
+AUTO_MATTERS_CANDIDATES_PROMPT = (
+    "服务器已从 OneDrive 获取上周 PPT，但未能自动识别事项汇报页"
+    "（旧模板可能没有 matters 版式）。请查看 matters_candidates 的 "
+    "slide_number、layout、text_preview 和内容标记，选择正确页码；保留相同 "
+    "service_date（以及可选的 last_week_filename），传入 "
+    "last_week_slide_numbers=[...] 重新调用 generate_worship_powerpoint。"
+    "不要编造事项内容。"
+)
+
+AUTO_MATTERS_NO_CANDIDATES_PROMPT = (
+    "服务器已从 OneDrive 获取上周 PPT，但未能找到事项汇报页或候选页。"
+    "请用户手动提供上周文件或页码；不要编造事项内容。"
+)
+
+UPLOAD_SUCCESS_REMINDER = (
+    "已把本次 PPT 写回 OneDrive 归档：{filename}。分享链接：{share_url}"
+)
+
+UPLOAD_FAILED_REMINDER = "OneDrive 写回失败：{error}"
 
 MCP_INSTRUCTIONS = (
     "WorshipPPT Presentation Server.\n"
     "Generates Sunday worship service presentations (PPTX) from structured JSON worship data.\n"
-    "CRITICAL AGENT INSTRUCTION:\n"
-    "The generated presentation's announcements/matters slide ('matters') is intentionally left blank by the template. "
-    "To have the server copy last week's matters slide for you, pass last_week_pptx_url (a public https "
-    "OneDrive/SharePoint download link) or last_week_pptx_base64 (the .pptx bytes) to generate_worship_powerpoint. "
-    "The server copies text, pictures, tables, grouped shapes, charts, and embedded chart data.\n"
-    "If auto-detection fails (for example, an older template without a 'matters' layout), the response "
-    "returns matters_candidates with slide_number, layout, text_preview, and content flags. Choose the "
-    "correct 1-based slide numbers and retry with last_week_slide_numbers=[...].\n"
-    "If you cannot supply the file, the response returns instructions for copying it manually: "
-    f"go to the worship PPT archive ({WORSHIP_ARCHIVE_URL}), locate last week's worship PPT, and copy its "
-    "matters/announcements content into the new presentation. If last week's PPT was already downloaded in your "
-    "browser, get its direct download link from the browser's download history (Ctrl+J or chrome://downloads): "
-    "click the link icon next to the entry and use the resulting download.aspx?UniqueId=... URL."
+    "AUTOMATIC ONEDRIVE MODE (preferred): call generate_worship_powerpoint with service_date only. "
+    "The server looks in the church archive for the strictly previous Sunday's <YYYY-MM-DD>.pptx, "
+    "copies its matters/announcements slides, uploads the new deck back to the archive as "
+    "<service_date>.pptx, creates an anonymous view link, and returns uploaded_share_url. "
+    "After a successful generation, present uploaded_share_url to the user. Do not ask the user to visit "
+    "OneDrive or use browser download history when automatic mode succeeds.\n"
+    "If the response has last_week_archive_candidates or auto_last_week_error, choose a filename and retry "
+    "with last_week_filename=\"...\", or provide an explicit last_week_pptx_url/last_week_pptx_base64. "
+    "If matters_candidates is returned for an older template, retry with last_week_slide_numbers=[...]. "
+    "Do not invent announcement content.\n"
+    "If automatic mode is configured but returns last_week_archive_candidates or auto_last_week_error, choose a "
+    "filename and retry, or ask the user for a manual upload or download link. "
+    "If automatic mode is not configured, the response includes manual instructions; only then use the archive "
+    f"link ({WORSHIP_ARCHIVE_URL}) or browser download history (Ctrl+J / chrome://downloads). "
+    "The server never stores the OneDrive password; a dedicated account authorizes it once through device code."
 )
 
 mcp_server = FastMCP(
@@ -157,6 +198,8 @@ app.add_middleware(
         "Content-Disposition",
         "X-Worship-Warnings",
         "X-Worship-Matters-Copied",
+        "X-Worship-Last-Week-Metadata",
+        "X-Worship-Upload-Metadata",
     ],
 )
 
@@ -184,91 +227,6 @@ def _validate_data(data):
             return error
 
     return None
-
-
-def _is_allowed_onedrive_host(host: str) -> bool:
-    """Return True for OneDrive/SharePoint download hosts."""
-    host = host.lower().rstrip(".")
-    return (
-        host in {"onedrive.live.com", "1drv.ms", "onedrive.com", "sharepoint.com"}
-        or host.endswith(".onedrive.live.com")
-        or host.endswith(".1drv.ms")
-        or host.endswith(".onedrive.com")
-        or host.endswith(".sharepoint.com")
-        or host in {"files.1drv.com"}
-        or host.endswith(".files.1drv.com")
-    )
-
-
-def _is_allowed_onedrive_url(url: str) -> bool:
-    parsed = urlparse(url)
-    return (
-        parsed.scheme == "https"
-        and bool(parsed.hostname)
-        and _is_allowed_onedrive_host(parsed.hostname)
-    )
-
-
-class _OneDriveRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Follow redirects only while they stay on OneDrive/SharePoint hosts."""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        newurl = urljoin(req.full_url, newurl)
-        if not _is_allowed_onedrive_url(newurl):
-            raise urllib.error.HTTPError(
-                req.full_url,
-                code,
-                "Blocked redirect to a non-OneDrive host.",
-                headers,
-                fp,
-            )
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
-
-
-def _validate_pptx_bytes(data: bytes) -> bytes:
-    """Validate that ``data`` is an unencrypted PowerPoint package."""
-    if not data.startswith(b"PK"):
-        raise ValueError("The supplied last-week file is not a .pptx file.")
-    try:
-        Presentation(BytesIO(data))
-    except Exception as exc:
-        raise ValueError(
-            "The supplied last-week file is not a readable .pptx file."
-        ) from exc
-    return data
-
-
-def _download_pptx(url: str) -> bytes:
-    """Download a public OneDrive/SharePoint PPTX with host and size limits."""
-    if not _is_allowed_onedrive_url(url):
-        raise ValueError(
-            "last_week_pptx_url must be an https OneDrive or SharePoint link."
-        )
-
-    opener = urllib.request.build_opener(_OneDriveRedirectHandler())
-    request = urllib.request.Request(url, headers={"User-Agent": "WorshipPPT/1.0"})
-    try:
-        with opener.open(request, timeout=30) as response:
-            data = response.read(MAX_LAST_WEEK_PPTX_BYTES + 1)
-    except (urllib.error.URLError, OSError) as exc:
-        raise ValueError(f"Could not download last week's PPT: {exc}") from exc
-
-    if len(data) > MAX_LAST_WEEK_PPTX_BYTES:
-        raise ValueError("Last week's PPT exceeds the 50 MB limit.")
-    return _validate_pptx_bytes(data)
-
-
-def _decode_pptx_base64(value: str) -> bytes:
-    compact = "".join(value.split())
-    if len(compact) > MAX_LAST_WEEK_PPTX_BYTES * 2:
-        raise ValueError("last_week_pptx_base64 exceeds the 50 MB limit.")
-    try:
-        data = base64.b64decode(compact, validate=True)
-    except (binascii.Error, ValueError) as exc:
-        raise ValueError("last_week_pptx_base64 is not valid base64.") from exc
-    if len(data) > MAX_LAST_WEEK_PPTX_BYTES:
-        raise ValueError("Last week's PPT exceeds the 50 MB limit.")
-    return _validate_pptx_bytes(data)
 
 
 def _last_week_pptx_from_inputs(url: str, encoded: str) -> bytes | None:
@@ -299,6 +257,239 @@ def _matters_candidates(last_week_pptx: bytes | None) -> list[dict]:
         return []
 
 
+@dataclass
+class LastWeekSelection:
+    content: bytes | None = None
+    source: str = "none"
+    filename: str = ""
+    explicit: bool = False
+    auto_attempted: bool = False
+    auto_error: str = ""
+    archive_candidates: list[dict] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class DeckResult:
+    filename: str
+    content: bytes
+    warnings: list[str]
+    matters_copied: int
+    matters_candidates: list[dict]
+    selection: LastWeekSelection
+
+
+def _parse_service_date(value: str) -> date:
+    raw = (value or "").strip()
+    if not raw:
+        return date.today()
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        raise ValueError("service_date must be YYYY-MM-DD.") from None
+
+
+def _resolve_last_week_selection(
+    service_date: date,
+    *,
+    uploaded_bytes: bytes | None = None,
+    uploaded_name: str = "",
+    url: str = "",
+    encoded: str = "",
+    auto_last_week: bool = True,
+    archive_filename: str = "",
+) -> LastWeekSelection:
+    """Resolve an explicit last-week deck first, then try OneDrive."""
+    if uploaded_bytes is not None:
+        return LastWeekSelection(
+            content=_validate_pptx_bytes(uploaded_bytes),
+            source="upload",
+            filename=uploaded_name,
+            explicit=True,
+        )
+    if encoded.strip():
+        return LastWeekSelection(
+            content=_decode_pptx_base64(encoded.strip()),
+            source="base64",
+            explicit=True,
+        )
+    if url.strip():
+        return LastWeekSelection(
+            content=_download_pptx(url.strip()),
+            source="url",
+            explicit=True,
+        )
+    if not auto_last_week:
+        return LastWeekSelection()
+
+    result = onedrive.auto_last_week_pptx(
+        service_date, filename=archive_filename
+    )
+    if result.content:
+        return LastWeekSelection(
+            content=result.content,
+            source="onedrive",
+            filename=result.filename,
+            auto_attempted=result.attempted,
+            warnings=list(result.warnings),
+        )
+    return LastWeekSelection(
+        auto_attempted=result.attempted,
+        auto_error=result.error,
+        archive_candidates=list(result.candidates),
+        warnings=list(result.warnings),
+    )
+
+
+def _generate_deck(
+    payload: dict,
+    selected_date: date,
+    selection: LastWeekSelection,
+    slide_numbers: list[int] | None,
+) -> DeckResult:
+    with tempfile.TemporaryDirectory(prefix="worship-ppt-") as directory:
+        template = Path(directory) / "template.pptx"
+        output = Path(directory) / f"Worship_{selected_date.isoformat()}.pptx"
+        template.write_bytes(DEFAULT_TEMPLATE_PATH.read_bytes())
+        warnings = generate_worship_ppt(
+            str(template),
+            payload,
+            str(output),
+            selected_date=selected_date.isoformat(),
+        )
+        all_warnings = list(warnings or []) + list(selection.warnings)
+        matters_copied = 0
+        matters_candidates: list[dict] = []
+        if selection.content:
+            try:
+                matters_copied, matters_warnings = _copy_matters_into(
+                    output, selection.content, slide_numbers
+                )
+                all_warnings.extend(matters_warnings)
+            except Exception as exc:
+                if selection.source == "onedrive":
+                    all_warnings.append(
+                        f"无法复制 OneDrive 上周文件的事项页：{exc}"
+                    )
+                else:
+                    raise ValueError(
+                        f"Could not copy last week's matters slide: {exc}"
+                    ) from exc
+            if matters_copied == 0:
+                matters_candidates = _matters_candidates(selection.content)
+        return DeckResult(
+            filename=output.name,
+            content=output.read_bytes(),
+            warnings=all_warnings,
+            matters_copied=matters_copied,
+            matters_candidates=matters_candidates,
+            selection=selection,
+        )
+
+
+def _upload_deck(
+    selected_date: date, content: bytes, *, enabled: bool = True
+) -> dict:
+    empty = {
+        "uploaded": False,
+        "filename": "",
+        "web_url": "",
+        "share_url": "",
+        "error": "",
+        "warnings": [],
+    }
+    if not enabled:
+        return empty
+    archive = onedrive.get_onedrive_archive()
+    if archive is None:
+        return empty
+    return archive.upload_generated_deck(selected_date, content)
+
+
+def _build_result_text(
+    deck: DeckResult, upload: dict
+) -> tuple[list[str], str, str]:
+    selection = deck.selection
+    all_warnings = list(deck.warnings)
+    all_warnings.extend(upload.get("warnings") or [])
+    reminder = ""
+    post_generation_prompt = ""
+
+    if deck.matters_copied:
+        reminder = MATTERS_COPIED_REMINDER.format(count=deck.matters_copied)
+    elif selection.content:
+        if deck.matters_candidates:
+            reminder = (
+                "未能自动识别上周 PPT 的事项汇报页。请查看 "
+                "matters_candidates 并选择正确页码后重试。"
+            )
+            post_generation_prompt = (
+                AUTO_MATTERS_CANDIDATES_PROMPT
+                if selection.source == "onedrive"
+                else MATTERS_CANDIDATES_PROMPT
+            )
+        else:
+            reminder = "未能找到上周 PPT 的事项汇报页，请按内容手动选择页码。"
+            post_generation_prompt = (
+                AUTO_MATTERS_NO_CANDIDATES_PROMPT
+                if selection.source == "onedrive"
+                else MATTERS_NO_CANDIDATES_PROMPT
+            )
+    elif selection.auto_attempted:
+        message = AUTO_LAST_WEEK_REMINDER.format(
+            error=selection.auto_error or "没有找到唯一的上周文件"
+        )
+        all_warnings.append(message)
+        reminder = message
+        post_generation_prompt = AUTO_LAST_WEEK_PROMPT
+    else:
+        all_warnings.append(POST_GENERATION_REMINDER)
+        reminder = POST_GENERATION_REMINDER
+        post_generation_prompt = LAST_WEEK_DOWNLOAD_LINK_GUIDE
+
+    if upload.get("uploaded"):
+        suffix = UPLOAD_SUCCESS_REMINDER.format(
+            filename=upload.get("filename") or "",
+            share_url=upload.get("share_url") or upload.get("web_url") or "",
+        )
+        reminder = f"{reminder}\n\n{suffix}" if reminder else suffix
+    elif upload.get("error"):
+        suffix = UPLOAD_FAILED_REMINDER.format(error=upload["error"])
+        all_warnings.append(suffix)
+        reminder = f"{reminder}\n\n{suffix}" if reminder else suffix
+
+    return all_warnings, reminder, post_generation_prompt
+
+
+def _last_week_metadata(selection: LastWeekSelection) -> str:
+    return json.dumps(
+        {
+            "source": selection.source,
+            "filename": selection.filename,
+            "auto_attempted": selection.auto_attempted,
+            "auto_error": selection.auto_error,
+            "candidates": selection.archive_candidates,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+
+
+def _upload_metadata(upload: dict) -> str:
+    return json.dumps(
+        {
+            "uploaded": bool(upload.get("uploaded")),
+            "filename": upload.get("filename") or "",
+            "web_url": upload.get("web_url") or "",
+            "share_url": upload.get("share_url") or "",
+            "error": upload.get("error") or "",
+            "warnings": upload.get("warnings") or [],
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+
+
 @mcp_server.tool()
 def get_sample_worship_data() -> dict:
     """Get example worship JSON. Sections accept legacy lines or explicit pages.
@@ -308,14 +499,13 @@ def get_sample_worship_data() -> dict:
     Do not also supply section-level lines when using pages. Blank lines do not
     define slide boundaries in the legacy lines format.
 
-    CRITICAL POST-PROCESSING NOTE:
-    The template leaves the matters/announcements slide blank. To let the server copy
-    last week's matters slide for you, pass last_week_pptx_url or last_week_pptx_base64
-    to generate_worship_powerpoint. Otherwise, visit the OneDrive archive:
-    https://1drv.ms/f/c/1b40ff3184add23e/IgBvMYWWe1v8RpbhkkjUr142Aar3qCdtzJEPobKBbub6zMU?e=lFGb49
-    find last week's worship PPT, and copy its matters/announcements slide into this presentation.
-    If last week's PPT was already downloaded in your browser, get its direct download link from the
-    browser's download history (Ctrl+J or chrome://downloads) instead of re-opening OneDrive.
+    MATTERS/AUTOMATION NOTE:
+    When OneDrive is configured, generate_worship_powerpoint automatically reads the
+    strictly previous Sunday's <YYYY-MM-DD>.pptx from the church archive, copies its
+    matters/announcements slides, writes the new deck back, and returns
+    uploaded_share_url. Explicit last_week_pptx_url/base64 inputs override automatic
+    retrieval. If automatic mode is unavailable, the response includes the archive
+    link and manual fallback instructions.
     """
     data = json.loads(SAMPLE_JSON_PATH.read_text(encoding="utf-8"))
     for song in [*data["hymns"], data["response_hymn"]]:
@@ -344,94 +534,74 @@ def generate_worship_powerpoint(
     last_week_pptx_url: str = "",
     last_week_pptx_base64: str = "",
     last_week_slide_numbers: list[int] | None = None,
+    use_onedrive: bool = True,
+    last_week_filename: str = "",
+    upload_to_onedrive: bool = True,
 ) -> dict:
     """Generate a PPTX with the bundled template. Decode pptx_base64 to save the file.
 
-    service_date must be YYYY-MM-DD; omitted dates use the server's current date.
-    Review returned warnings for content that needs attention.
+    Automatic mode (preferred): pass service_date and let the server find the
+    strictly previous Sunday's <YYYY-MM-DD>.pptx in the church OneDrive archive,
+    copy its matters/announcements slides, upload the final deck back to the
+    archive, and create an anonymous view link. The response includes
+    last_week_source, last_week_filename, uploaded_share_url, and related fields.
+    Present uploaded_share_url to the user when it is present.
 
-    To have the server copy last week's announcement/matters slide into this deck, pass
-    last_week_pptx_url (a public https OneDrive/SharePoint download link) or
-    last_week_pptx_base64 (the .pptx bytes). Pictures, tables, grouped shapes, charts,
-    and embedded chart data are copied; the generated deck's matters layout is kept.
-    If neither is supplied, matters stays blank and the response includes manual-copy
-    instructions.
+    Explicit last_week_pptx_url or last_week_pptx_base64 overrides automatic
+    retrieval. If the archive has multiple matching files, pass last_week_filename
+    to choose one. Older templates may return matters_candidates; retry with
+    last_week_slide_numbers=[...]. Do not invent announcement content.
 
-    Older templates may not use a layout named 'matters'. If auto-detection fails,
-    the response includes matters_candidates with 1-based slide_number, layout,
-    text_preview, and content flags. Choose the announcement slides and call again
-    with the same source plus last_week_slide_numbers=[...] to copy those exact
-    slides. If no candidates are usable, inspect last week's PPT content yourself
-    and choose the slide numbers; do not invent announcement content.
-
-    CRITICAL POST-PROCESSING REQUIREMENT:
-    The template leaves the matters/announcements slide blank. If you did not pass a
-    last-week file, you must visit the OneDrive worship archive:
-    https://1drv.ms/f/c/1b40ff3184add23e/IgBvMYWWe1v8RpbhkkjUr142Aar3qCdtzJEPobKBbub6zMU?e=lFGb49
-    find last week's worship PPT, and copy its matters/announcements slide into this PPT.
-    The response's post_generation_prompt explains how to obtain last week's PPT directly
-    from the browser download history when it was already downloaded.
+    If automatic mode is unavailable, the response includes manual-copy
+    instructions and the browser-download-history fallback.
     """
     error = _validate_data(data)
     if error:
         raise ValueError(error)
-    selected_date = date.fromisoformat(service_date) if service_date else date.today()
-    last_week_pptx = _last_week_pptx_from_inputs(
-        last_week_pptx_url.strip(), last_week_pptx_base64.strip()
+    selected_date = _parse_service_date(service_date)
+    selection = _resolve_last_week_selection(
+        selected_date,
+        url=last_week_pptx_url,
+        encoded=last_week_pptx_base64,
+        auto_last_week=use_onedrive,
+        archive_filename=last_week_filename,
     )
-    if last_week_slide_numbers and not last_week_pptx:
+    if last_week_slide_numbers and not selection.content:
         raise ValueError(
-            "last_week_slide_numbers requires last_week_pptx_url or "
-            "last_week_pptx_base64."
+            "last_week_slide_numbers requires a last-week deck. Automatic OneDrive "
+            "retrieval did not produce one; provide last_week_pptx_url/base64 or "
+            "choose last_week_filename first."
         )
-    with tempfile.TemporaryDirectory(prefix="worship-mcp-") as directory:
-        template = Path(directory) / "template.pptx"
-        output = Path(directory) / f"Worship_{selected_date.isoformat()}.pptx"
-        template.write_bytes(DEFAULT_TEMPLATE_PATH.read_bytes())
-        warnings = generate_worship_ppt(
-            str(template), data, str(output), selected_date=selected_date.isoformat()
-        )
-        try:
-            matters_copied, matters_warnings = _copy_matters_into(
-                output, last_week_pptx, last_week_slide_numbers
-            )
-        except Exception as exc:
-            raise ValueError(
-                f"Could not copy last week's matters slide: {exc}"
-            ) from exc
 
-        all_warnings = (warnings or []) + matters_warnings
-        candidates: list[dict] = []
-        if matters_copied:
-            reminder = MATTERS_COPIED_REMINDER.format(count=matters_copied)
-            post_generation_prompt = ""
-        elif last_week_pptx:
-            candidates = _matters_candidates(last_week_pptx)
-            if candidates:
-                reminder = (
-                    "未能自动识别上周 PPT 的事项汇报页。请查看 "
-                    "matters_candidates 并选择正确页码后重试。"
-                )
-                post_generation_prompt = MATTERS_CANDIDATES_PROMPT
-            else:
-                reminder = "未能找到上周 PPT 的事项汇报页，请按内容手动选择页码。"
-                post_generation_prompt = MATTERS_NO_CANDIDATES_PROMPT
-        else:
-            all_warnings.append(POST_GENERATION_REMINDER)
-            reminder = POST_GENERATION_REMINDER
-            post_generation_prompt = LAST_WEEK_DOWNLOAD_LINK_GUIDE
+    deck = _generate_deck(data, selected_date, selection, last_week_slide_numbers)
+    upload = _upload_deck(
+        selected_date, deck.content, enabled=upload_to_onedrive
+    )
+    all_warnings, reminder, post_generation_prompt = _build_result_text(
+        deck, upload
+    )
 
-        return {
-            "filename": output.name,
-            "mime_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            "pptx_base64": base64.b64encode(output.read_bytes()).decode("ascii"),
-            "warnings": all_warnings,
-            "reminder": reminder,
-            "post_generation_prompt": post_generation_prompt,
-            "matters_copied": matters_copied > 0,
-            "matters_slides_copied": matters_copied,
-            "matters_candidates": candidates,
-        }
+    return {
+        "filename": deck.filename,
+        "mime_type": PPTX_MIME,
+        "pptx_base64": base64.b64encode(deck.content).decode("ascii"),
+        "warnings": all_warnings,
+        "reminder": reminder,
+        "post_generation_prompt": post_generation_prompt,
+        "matters_copied": deck.matters_copied > 0,
+        "matters_slides_copied": deck.matters_copied,
+        "matters_candidates": deck.matters_candidates,
+        "last_week_source": selection.source,
+        "last_week_filename": selection.filename,
+        "auto_last_week_attempted": selection.auto_attempted,
+        "auto_last_week_error": selection.auto_error,
+        "last_week_archive_candidates": selection.archive_candidates,
+        "uploaded_to_onedrive": bool(upload.get("uploaded")),
+        "uploaded_filename": upload.get("filename") or "",
+        "uploaded_web_url": upload.get("web_url") or "",
+        "uploaded_share_url": upload.get("share_url") or "",
+        "upload_error": upload.get("error") or "",
+    }
 
 
 @mcp_server.prompt("worship_matters_copy_guide")
@@ -508,9 +678,15 @@ async def generate(
     last_week_pptx: UploadFile | None = File(default=None),
     last_week_pptx_url: str = Form(default=""),
     last_week_slide_numbers: str = Form(default=""),
+    use_onedrive: bool = Form(default=True),
+    last_week_filename: str = Form(default=""),
+    upload_to_onedrive: bool = Form(default=True),
 ):
     """Generate a worship PPT from the bundled template and uploaded JSON file."""
-    selected_date = selected_date.strip() or date.today().isoformat()
+    try:
+        parsed_date = _parse_service_date(selected_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     if not data.filename or not data.filename.lower().endswith(".json"):
         raise HTTPException(status_code=400, detail="Worship data must be a .json file.")
@@ -529,7 +705,8 @@ async def generate(
     if validation_error:
         raise HTTPException(status_code=400, detail=validation_error)
 
-    last_week_bytes = None
+    uploaded_bytes = None
+    uploaded_name = ""
     if last_week_pptx is not None and last_week_pptx.filename:
         if not last_week_pptx.filename.lower().endswith(".pptx"):
             raise HTTPException(
@@ -543,14 +720,23 @@ async def generate(
                 detail="Last week's PPT exceeds the 50 MB limit.",
             )
         try:
-            last_week_bytes = _validate_pptx_bytes(raw)
+            uploaded_bytes = _validate_pptx_bytes(raw)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-    elif last_week_pptx_url.strip():
-        try:
-            last_week_bytes = _download_pptx(last_week_pptx_url.strip())
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        uploaded_name = last_week_pptx.filename
+
+    try:
+        selection = await run_in_threadpool(
+            _resolve_last_week_selection,
+            parsed_date,
+            uploaded_bytes=uploaded_bytes,
+            uploaded_name=uploaded_name,
+            url=last_week_pptx_url,
+            auto_last_week=use_onedrive,
+            archive_filename=last_week_filename,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     slide_numbers = None
     if last_week_slide_numbers.strip():
@@ -570,11 +756,12 @@ async def generate(
                 status_code=400,
                 detail="last_week_slide_numbers must contain at least one number.",
             )
-        if not last_week_bytes:
+        if not selection.content:
             raise HTTPException(
                 status_code=400,
-                detail="last_week_slide_numbers requires last_week_pptx or "
-                "last_week_pptx_url.",
+                detail="last_week_slide_numbers requires a last-week deck. "
+                "Automatic OneDrive retrieval did not produce one; upload a file, "
+                "provide a URL, or choose last_week_filename first.",
             )
 
     if slides:
@@ -603,41 +790,41 @@ async def generate(
                 raise HTTPException(status_code=400, detail="An edited slide is invalid.")
         payload["preview_slides"] = preview_slides
 
-    with tempfile.TemporaryDirectory(prefix="worship-ppt-") as tmp_dir_name:
-        tmp_dir = Path(tmp_dir_name)
-        template_path = tmp_dir / DEFAULT_TEMPLATE_PATH.name
-        output_path = tmp_dir / f"Worship_{selected_date}.pptx"
-
-        template_path.write_bytes(DEFAULT_TEMPLATE_PATH.read_bytes())
-        warnings = generate_worship_ppt(
-            str(template_path),
+    try:
+        deck = await run_in_threadpool(
+            _generate_deck,
             payload,
-            str(output_path),
-            selected_date=selected_date,
+            parsed_date,
+            selection,
+            slide_numbers,
         )
-        try:
-            matters_copied, matters_warnings = _copy_matters_into(
-                output_path, last_week_bytes, slide_numbers
-            )
-        except Exception as exc:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Could not copy last week's matters slide: {exc}",
-            ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-        warnings = (warnings or []) + matters_warnings
-        ppt_bytes = BytesIO(output_path.read_bytes())
-        response = StreamingResponse(
-            ppt_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        )
-        response.headers["Content-Disposition"] = (
-            f'attachment; filename="{output_path.name}"'
-        )
-        response.headers["X-Worship-Matters-Copied"] = str(matters_copied)
-        if warnings:
-            response.headers["X-Worship-Warnings"] = json.dumps(warnings)
-        return response
+    upload = await run_in_threadpool(
+        _upload_deck,
+        parsed_date,
+        deck.content,
+        enabled=upload_to_onedrive,
+    )
+    all_warnings, _reminder, _post_prompt = _build_result_text(deck, upload)
+
+    response = StreamingResponse(BytesIO(deck.content), media_type=PPTX_MIME)
+    response.headers["Content-Disposition"] = (
+        f'attachment; filename="{deck.filename}"'
+    )
+    response.headers["X-Worship-Matters-Copied"] = str(deck.matters_copied)
+    if all_warnings:
+        response.headers["X-Worship-Warnings"] = json.dumps(all_warnings)
+    response.headers["X-Worship-Last-Week-Metadata"] = _last_week_metadata(selection)
+    response.headers["X-Worship-Upload-Metadata"] = _upload_metadata(upload)
+    return response
+
+
+@app.get("/api/onedrive/status")
+def onedrive_status():
+    """Report OneDrive configuration without exposing tokens or URLs."""
+    return onedrive.get_status()
 
 
 @app.exception_handler(HTTPException)

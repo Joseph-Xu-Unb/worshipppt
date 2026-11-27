@@ -8,3 +8,11 @@ services:
     envVars:
       - key: ALLOWED_ORIGINS
         value: "*"
+      - key: ONEDRIVE_CLIENT_ID
+        sync: false
+      - key: ONEDRIVE_TENANT_ID
+        sync: false
+      - key: ONEDRIVE_REFRESH_TOKEN
+        sync: false
+      - key: ONEDRIVE_TOKEN_ISSUED_AT
+        sync: false

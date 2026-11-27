@@ -20,10 +20,48 @@ export type WorshipData = {
 
 export type SelectedFile = File | null;
 
+export type OneDriveStatus = {
+  configured: boolean;
+  mode: "share" | "path" | "none";
+  auto_enabled: boolean;
+  upload_enabled: boolean;
+  token_status: "ok" | "renew_soon" | "expired" | "unknown";
+  token_age_days: number | null;
+  archive: string;
+  error: string;
+};
+
+export type LastWeekCandidate = {
+  name: string;
+  modified?: string;
+  size?: number | null;
+  date?: string;
+  path?: string;
+};
+
+export type LastWeekMetadata = {
+  source: "none" | "upload" | "base64" | "url" | "onedrive" | string;
+  filename: string;
+  auto_attempted: boolean;
+  auto_error: string;
+  candidates: LastWeekCandidate[];
+};
+
+export type UploadMetadata = {
+  uploaded: boolean;
+  filename: string;
+  web_url: string;
+  share_url: string;
+  error: string;
+  warnings?: string[];
+};
+
 export type GenerationResult = {
   fileName: string;
   warnings: string[];
   mattersCopied: number;
+  lastWeek?: LastWeekMetadata;
+  upload?: UploadMetadata;
 };
 
 export type WorshipSlidePreview = {

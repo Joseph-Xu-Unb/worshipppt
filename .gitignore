@@ -4,6 +4,7 @@ __pycache__/
 
 # Virtual environment
 venv/
+.venv/
 
 # JavaScript
 node_modules/
@@ -19,3 +20,9 @@ Thumbs.db
 output/
 worship_data_*.json
 *.log
+
+# Local secrets / OneDrive credentials
+.env
+.env.*
+onedrive.env
+*.token
