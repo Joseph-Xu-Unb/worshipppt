@@ -125,6 +125,10 @@ export function HomePage() {
                 已选择手动文件，本次生成会优先使用它。
               </small>
             )}
+            <small className="toggle-note">
+              默认勾选。若找不到上周事项汇报页，可先取消“自动复制上周事项汇报”再生成，事项页留空并写回；
+              完成后请分享可编辑链接给牧师和主席 review。
+            </small>
           </div>
 
           <div className="date-row">

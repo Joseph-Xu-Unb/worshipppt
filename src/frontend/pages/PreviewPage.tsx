@@ -79,15 +79,50 @@ export function PreviewPage() {
           {result.upload?.uploaded && (
             <span className="share-link">
               已写回 OneDrive：<strong>{result.upload.filename}</strong>。
-              {result.upload.share_url ? (
+              {result.upload.edit_url ? (
                 <>
-                  <a
-                    href={result.upload.share_url}
-                    target="_blank"
-                    rel="noreferrer"
+                  <span>
+                    可编辑分享链接：
+                    <a
+                      href={result.upload.edit_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {result.upload.edit_url}
+                    </a>
+                  </span>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      if (result.upload?.edit_url) {
+                        void navigator.clipboard.writeText(result.upload.edit_url);
+                      }
+                    }}
                   >
-                    分享/下载链接
-                  </a>
+                    复制可编辑链接
+                  </button>
+                  <span>
+                    请把该链接转发到教会群聊，请牧师和主席 review，并在共享链接上继续修改。
+                  </span>
+                </>
+              ) : (
+                <span>
+                  未能创建可编辑分享链接；请登录教会 OneDrive 后在归档文件夹中编辑。
+                </span>
+              )}
+              {result.upload.share_url && (
+                <>
+                  <span>
+                    下载链接：
+                    <a
+                      href={result.upload.share_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {result.upload.share_url}
+                    </a>
+                  </span>
                   <button
                     type="button"
                     className="secondary-button"
@@ -97,24 +132,37 @@ export function PreviewPage() {
                       }
                     }}
                   >
-                    复制链接
+                    复制下载链接
                   </button>
-                  {result.upload.view_url &&
-                    result.upload.view_url !== result.upload.share_url && (
-                      <a
-                        href={result.upload.view_url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        在 OneDrive 查看（可能需登录）
-                      </a>
-                    )}
                 </>
-              ) : result.upload.web_url ? (
-                <a href={result.upload.web_url} target="_blank" rel="noreferrer">
-                  打开文件
-                </a>
-              ) : null}
+              )}
+              {!result.upload.edit_url &&
+                !result.upload.share_url &&
+                result.upload.web_url && (
+                  <a href={result.upload.web_url} target="_blank" rel="noreferrer">
+                    打开文件
+                  </a>
+                )}
+              {result.upload.view_url &&
+                result.upload.view_url !== result.upload.edit_url &&
+                result.upload.view_url !== result.upload.share_url && (
+                  <a
+                    href={result.upload.view_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    在 OneDrive 查看（可能需登录）
+                  </a>
+                )}
+              <span>
+                周日可在同步了该 OneDrive 文件夹的惠普/DELL 电脑上，从本地 OneDrive
+                打开 {result.upload.filename}。
+              </span>
+            </span>
+          )}
+          {result.upload?.deferred && (
+            <span>
+              上周事项汇报页未成功复制，OneDrive 写回已暂缓。请取消勾选“自动复制上周事项汇报”后重新生成并写回（事项页留空），或提供上周文件/页码。
             </span>
           )}
           {result.upload?.error && (

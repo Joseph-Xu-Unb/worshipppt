@@ -1,42 +1,13 @@
 import { ChatHistoryInput } from "./ChatHistoryInput";
 
 import { lyricsLibraryUrl, worshipArchiveUrl } from "../lib/church-resources";
+import musePromptTemplate from "../../shared/muse_prompt.txt?raw";
 
-const musePrompt = `请把下面的教会群聊天记录整理成崇拜 PPT。
-从聊天记录提取聚会日期、宣召和主题经文、诗歌名称、完整歌词及顺序，以群里最后确认的安排为准。经文使用和合本，保留歌词重复段落和间奏。资料整理和 JSON 不需要我检查；但在生成本周 PPT 前，必须按下面的“生成前确认”先询问我并等待回答。只有必要资料缺失或消息冲突时才询问其他内容，不要编造。
-教会歌词库：${lyricsLibraryUrl}
-往期崇拜 PPT 归档库：${worshipArchiveUrl}
-优先使用教会歌词库中的版本。读取歌词库时，请按以下步骤操作：
-1. 优先使用你可用且获准使用的浏览器工具打开 OneDrive 链接，等待页面中的文件列表加载，再查找并打开本次诗歌，读取完整歌词；不要只依赖直接抓取页面文本，因为 OneDrive 页面需要 JavaScript 渲染。
-2. 如果轻量文本抓取失败或提示域名受限，不要据此认定链接失效、文件不存在或需要登录；如果有获准使用的浏览器工具，请用浏览器打开原链接。遵守工具的访问限制，不要绕过访问控制。
-3. 此链接为公开分享，先尝试匿名访问，不要预先要求我登录。如果页面提示渲染失败或暂时出错，请在新标签页重新打开原链接，等待加载后重试一次，避免反复刷新。
-4. 找到诗歌后，核对标题及版本并读取全部歌词，保留重复段落和段落标记，不要只根据文件名、搜索摘要或部分预览补写。读取时记录“间奏”“前奏”“尾声”“结束”等标记对应的歌词段落和原幻灯片页码，不要只记录“有间奏”而丢失位置。
-5. 只有在没有可用的浏览器工具、浏览器重试后仍无法读取、页面确实要求登录或没有找到所需诗歌时，才说明具体原因，并请我上传相应诗歌文件或粘贴完整歌词。不要凭诗歌名称猜写歌词。
-
-生成前确认（必须执行）：
-在调用制作服务前，请先问我并等我回答：
-1. 是否复制上周崇拜 PPT 的事项汇报页？（是/否）
-2. 是否把生成的新 PPT 写回 OneDrive 归档并生成分享链接？（是/否）
-根据我的回答，在调用 generate_worship_powerpoint 时显式设置：
-- 复制=是 → use_onedrive=true；复制=否 → use_onedrive=false，matters 页保持空白。
-- 回写=是 → upload_to_onedrive=true；回写=否 → upload_to_onedrive=false，不要上传，只把 pptx_base64 解码成 .pptx 交给我。
-不要在我回答前直接生成或上传，也不要依赖服务默认值。
-
-事项汇报与写回规则（按上面的回答执行）：
-如果复制=是：调用时 use_onedrive=true。服务器会从教会 OneDrive 归档读取上周（即距离本次崇拜日期最近的前一个主日）的 <YYYY-MM-DD>.pptx，复制其中的“事项报告 / 事项汇报”（matters）页，包括文字、图片、表格、分组形状和图表。不要要求我提供上周 PPT 的下载链接或手动复制页面。若返回 last_week_archive_candidates 或 auto_last_week_error，请查看候选（name、date、modified）并选择正确文件名，用 last_week_filename="..." 保持相同 service_date 重试；若返回 matters_candidates（旧模板可能没有 matters 版式），请用 last_week_slide_numbers=[...] 重试；若候选都不正确或无法读取文件，请说明具体原因并让我手动上传上周文件或提供链接，不要编造事项内容。
-如果复制=否：use_onedrive=false；不要复制上周内容，matters 页保持空白。
-如果回写=是：upload_to_onedrive=true。服务器会把新 PPT 按 <本次日期>.pptx 写回同一归档文件夹，并返回 uploaded_share_url；uploaded_share_url 是无需登录即可下载 PPTX 的链接，生成成功后请直接发给我；uploaded_view_url 是在 OneDrive 在线查看的链接，可能要求登录，可选。若 upload_error 非空，请说明写回失败原因，但仍把可下载的 PPT 交给我。
-如果回写=否：upload_to_onedrive=false；不要上传，只把 pptx_base64 解码为 .pptx 交给我。
-
-歌词标记排版规则：“间奏”“前奏”“尾声”“结束”等诗歌段落标记统一放在对应歌词页的末尾、该页最后一句歌词之后，不得移到下一页或下一段的开头，也不得单独占一页。位置不明确时，归到前一段歌词所在页的末尾；若无法确定对应段落，请询问，不要猜测。分页时须让标记与对应歌词保持在同一页。此规则针对诗歌中的标记，不影响崇拜流程的结束页。
-诗歌数据请使用明确分页格式：hymns 中的每首诗歌和 response_hymn 使用 {"title":"诗歌名称","pages":[{"lines":["第一句","第二句","第三句","第四句"],"footer":"间奏"},{"lines":["下一段第一句","下一段第二句"]}]}。pages 的每个元素就是一页，lines 只放该页歌词，footer 可省略，或填写“间奏”“前奏”“尾声”“结束”（可带括号）。不要同时提供诗歌顶层的 lines，也不要用空行表示分页。按原诗歌核对每页内容；每页最多四句歌词，页末标记不占歌词名额。标记必须放在所属页的 footer 中，不能放入下一页的 lines。
-
-交付前请检查实际生成的 PPTX：如有文件处理工具，解压并按幻灯片顺序读取每页文字，核对歌词完整性、重复段落、分页和标记位置。如果复制=是，核对事项汇报页的文字、图片、表格、分组形状和图表是否已成功复制上一周内容；如果复制=否，确认该页保持空白。如果回写=是，确认新文件已按 <本次日期>.pptx 写回归档，且 uploaded_share_url（无需登录的下载链接）可打开；如果回写=否，确认没有上传。发现问题时修正并重新生成、复查。不要仅凭制作服务返回“生成成功”就认定排版正确。如工具无法检查文件，请明确说明未完成文件检查，不要声称已核验。
-
-供你连接制作服务：
-MCP Streamable HTTP：https://worshipppt.onrender.com/mcp/
-无需登录或 API 密钥。调用 get_sample_worship_data 查看格式，用 validate_worship_data 验证，再用 generate_worship_powerpoint 生成，service_date 使用 YYYY-MM-DD。根据“生成前确认”的回答显式传 use_onedrive 和 upload_to_onedrive；如果复制=是，不要再传 last_week_pptx_url，除非自动模式失败。检查返回的 last_week_source、last_week_filename、auto_last_week_declined、matters_copied、last_week_archive_candidates、matters_candidates、uploaded_share_url、uploaded_view_url、upload_error 和 warnings；如果回写=是，把 uploaded_share_url（无需登录的下载链接）发给我；如果回写=否，不要上传，把 pptx_base64 解码为可下载的 .pptx 交给我。
-如连接超时，先访问 https://worshipppt.onrender.com/api/health，等服务启动后重试。启动可能需要约一分钟。`;
+const musePrompt = musePromptTemplate
+  .split("{{LYRICS_LIBRARY_URL}}")
+  .join(lyricsLibraryUrl)
+  .split("{{WORSHIP_ARCHIVE_URL}}")
+  .join(worshipArchiveUrl);
 
 export function MuseGuide() {
   return (
@@ -44,7 +15,7 @@ export function MuseGuide() {
       <div className="resource-header">
         <p className="eyebrow">Muse AI 使用指南</p>
         <h2>用教会群消息制作崇拜 PPT</h2>
-        <p className="resource-copy">粘贴聊天记录，Muse 会先问是否复制上周事项、是否写回，再生成最终 PPT。</p>
+        <p className="resource-copy">粘贴聊天记录，Muse 默认复制上周事项并写回 OneDrive，完成后返回可编辑分享链接。</p>
       </div>
 
       <div className="guide-card" style={{ padding: 18 }}>
@@ -60,11 +31,26 @@ export function MuseGuide() {
           也可以让 Muse 按下方指令先用浏览器查找本次诗歌。若仍无法读取，再把完整歌词复制给 Muse，或下载诗歌文件后上传给它。
         </p>
         <p className="guide-note">
-          <strong>事项汇报与写回：</strong>Muse 会先问你两个问题：是否复制上周事项汇报页、是否把新 PPT 写回
-          <a href={worshipArchiveUrl} target="_blank" rel="noreferrer">往期崇拜 PPT 归档库（OneDrive）</a>。
-          选“复制”时，服务端读取上周文件并复制事项页（文字、图片、表格、分组形状和图表）；
-          选“写回”时，新 PPT 按 &lt;本次日期&gt;.pptx 写回归档并返回分享链接。
-          选“否”时，matters 页保持空白或不上传，Muse 会直接把可下载的文件交给你。
+          <strong>事项汇报与写回：</strong>默认不加询问，Muse 会自动从
+          <a href={worshipArchiveUrl} target="_blank" rel="noreferrer">往期崇拜 PPT 归档库（OneDrive）</a>
+          读取上周文件并复制事项页（文字、图片、表格、分组形状和图表），然后把新 PPT 按
+          &lt;本次日期&gt;.pptx 写回归档，返回可编辑分享链接和下载链接。
+          只有找不到上周事项汇报时，Muse 才会停下来问：是继续生成（事项页留空），还是由您提供上周文件/页码。
+        </p>
+        <p className="guide-note">
+          <strong>分享与 review：</strong>写回成功后，Muse 会把
+          <code>uploaded_edit_url</code> 完整显示给您。请把该链接转发到教会群聊，请牧师和主席打开链接
+          review，并直接在这个共享链接上继续修改。<code>uploaded_share_url</code> 是无需登录的下载链接，也请完整保留。
+          如果可编辑链接无法匿名使用，请让牧师/主席登录教会 OneDrive 后在归档文件夹中编辑。
+        </p>
+        <p className="guide-note">
+          <strong>周日使用：</strong>只要惠普（HP）和 DELL 电脑同步了该 OneDrive 文件夹，周日直接打开本地
+          OneDrive 的 PPT 文件夹，找到 &lt;本次日期&gt;.pptx 打开使用即可，不必再找分享链接。
+        </p>
+        <p className="guide-note">
+          <strong>新增诗歌：</strong>需要新增诗歌时，可以让 Muse 把新歌保存到
+          <a href={lyricsLibraryUrl} target="_blank" rel="noreferrer">教会 OneDrive 曲库</a>。
+          保存前先确认歌名、歌词和版本，不要覆盖或改动已有诗歌文件；WorshipPPT 只负责生成 PPT，不会自动写曲库。
         </p>
         <p className="guide-note">
           歌词库及归档库为公开分享，可先尝试匿名访问。若 Muse 的文本抓取失败，请让它使用可用的浏览器工具打开链接并等待加载；
@@ -78,17 +64,23 @@ export function MuseGuide() {
         <p className="resource-copy">
           打开 Muse AI：<a href="https://muse.ai/" target="_blank" rel="noreferrer">https://muse.ai/</a>。
           在下方粘贴教会群消息，点击“复制指令和聊天记录”，再粘贴到 Muse 的新对话中发送一次。
-          Muse 会先问你是否复制上周事项、是否写回，再通过 WorshipPPT 制作服务生成最终文件；您无需查看 JSON。
+          Muse 会默认复制上周事项、生成 PPT 并写回 OneDrive；找不到上周事项页时才会先问您。您无需查看 JSON。
         </p>
         <ChatHistoryInput instructions={musePrompt} assistant="Muse AI" />
+        <p className="guide-note">
+          <strong>提示词同步：</strong>Muse 每次调用制作服务前会先检查提示词版本；如果 Muse
+          保存的提示词过期，服务会拒绝生成并返回最新提示词，Muse 必须先更新自己的指令再重试。
+        </p>
       </div>
 
       <div className="guide-card" style={{ padding: 18 }}>
-        <h3>3. 下载最终 PPT</h3>
+        <h3>3. 分享、review 与本地使用</h3>
         <p className="resource-copy">
-          Muse 会先确认是否复制上周事项、是否写回 OneDrive，然后整理资料并生成 PPT。
-          选择写回时，完成后会把 OneDrive 分享链接发给你；选择不写回或写回失败时，会把可下载的 PPT 交给你。
-          如果必要资料缺失，它会请您补充；资料齐全时，不需要检查 JSON。
+          生成并写回成功后，Muse 会把完整的可编辑分享链接（<code>uploaded_edit_url</code>）和无需登录的下载链接（
+          <code>uploaded_share_url</code>）发给您。请把可编辑链接转发到教会群聊，请牧师和主席打开链接 review，
+          并直接在这个共享链接上继续修改。周日打开惠普（HP）和 DELL 电脑上的本地 OneDrive 文件夹，
+          找到 &lt;本次日期&gt;.pptx 打开使用即可。如果写回失败或暂缓，Muse 会说明原因，必要时仍把可下载的 PPT 交给您。
+          资料齐全时不需要检查 JSON。
         </p>
       </div>
       <p className="guide-note">

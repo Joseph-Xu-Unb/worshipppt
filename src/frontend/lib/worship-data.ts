@@ -54,8 +54,11 @@ export type UploadMetadata = {
   web_url: string;
   view_url?: string;
   share_url: string;
+  edit_url?: string;
   error: string;
   warnings?: string[];
+  deferred?: boolean;
+  deferred_reason?: string;
 };
 
 export type GenerationResult = {

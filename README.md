@@ -121,14 +121,20 @@ In the web app:
    OneDrive automatic retrieval.
 3. Enter the service date, for example `2026-05-24`.
 4. Leave “自动复制上周事项汇报” and “生成后写回 OneDrive 并生成分享链接” checked when
-   OneDrive is configured. The server finds the previous Sunday's `<YYYY-MM-DD>.pptx`
-   in the church archive, copies its announcement/matters slides (pictures, tables,
-   grouped shapes, and charts), writes the new deck back, and creates a view link.
+   OneDrive is configured. These are the defaults: the server finds the previous
+   Sunday's `<YYYY-MM-DD>.pptx` in the church archive, copies its
+   announcement/matters slides (pictures, tables, grouped shapes, and charts),
+   writes the new deck back, and creates view and edit links. If the matters slide
+   cannot be found or copied, write-back is deferred so you can choose whether to
+   continue with a blank matters page or provide the correct last-week file/pages.
 5. Click `Preview Slides` to review the generated slides.
 6. (Optional) Edit titles, lyrics, reorder, insert, or delete individual slides.
 7. Click `Generate PPT`.
-8. The generated PowerPoint downloads in the browser. The result area also shows the
-   OneDrive filename and share link when write-back succeeds.
+8. The generated PowerPoint downloads in the browser. The result area shows the full
+   editable share link and the no-login download link when write-back succeeds.
+   Forward the editable link to the group chat for pastor/chair review and editing;
+   on Sunday the synced local OneDrive folder on the HP/DELL computers contains the
+   `<date>.pptx` file.
 
 The downloaded file is named:
 
@@ -215,7 +221,11 @@ When configured, the server uses a dedicated personal Microsoft account to:
 - find the strictly previous Sunday's `<YYYY-MM-DD>.pptx`;
 - copy its matters/announcement slides into the new deck;
 - write the new deck back to the same folder as `<service-date>.pptx`;
-- create an anonymous view link and return it as `uploaded_share_url`.
+- create anonymous view and edit links and return them as `uploaded_share_url`
+  (no-login download) and `uploaded_edit_url` (for pastor/chair review and
+  continued editing);
+- defer write-back when the matters slide cannot be copied, so the user can choose
+  between continuing with a blank matters page and supplying the correct file/pages.
 
 ### One-time app registration
 
@@ -314,22 +324,28 @@ consume paid minutes.
   retry with `last_week_filename` or upload a file manually.
 - Auto retrieval/write-back failures never discard the generated deck. Warnings,
   `auto_last_week_error`, and `upload_error` explain what failed.
+- If the matters slide cannot be found or copied, upload is deferred
+  (`upload_deferred=true`). Muse asks whether to continue with a blank matters page
+  (retry with `use_onedrive=false`, `upload_to_onedrive=true`) or to provide the
+  correct last-week file/page numbers.
 - Older source templates may return `matters_candidates`; retry with
   `last_week_slide_numbers`.
 - The MCP result includes `last_week_source`, `last_week_filename`,
   `last_week_archive_candidates`, `uploaded_to_onedrive`, `uploaded_filename`,
-  `uploaded_web_url`, `uploaded_view_url`, `uploaded_share_url`, and `upload_error`.
-  `uploaded_share_url` is a no-login `download=1` link that returns the PPTX
-  directly; `uploaded_view_url` is the OneDrive view link and may require a
-  Microsoft sign-in for Office previews.
+  `uploaded_web_url`, `uploaded_view_url`, `uploaded_share_url`,
+  `uploaded_edit_url`, `upload_error`, `upload_deferred`, and
+  `upload_deferred_reason`. `uploaded_share_url` is a no-login `download=1` link
+  that returns the PPTX directly; `uploaded_edit_url` is the anonymous edit link
+  for pastor/chair review and continued editing; `uploaded_view_url` is the
+  OneDrive view link and may require a Microsoft sign-in for Office previews.
 
 ### Costs and security
 
 - Entra app registration and Microsoft Graph calls are free. OneDrive storage quota
   still applies; weekly decks accumulate in the archive owner's OneDrive.
 - The delegated token can write to files the dedicated account can access. The code
-  only uploads the generated `<date>.pptx` into the configured archive and creates its
-  view link; it does not delete or rename other files.
+  only uploads the generated `<date>.pptx` into the configured archive and creates
+  view/edit links for that file; it does not delete or rename other files.
 - Do not give the account password to Muse or paste it into a chat. The account
   authorizes once through device code.
 - If the archive share link is view-only, write-back fails; the archive owner must
@@ -421,9 +437,13 @@ src/
     app.py
     content.py
     matters.py
+    muse_prompt.py
     onedrive.py
     pptx_inputs.py
     worship.py
+  shared/
+    church_resources.json
+    muse_prompt.txt
   frontend/
     components/
     hooks/
@@ -441,7 +461,7 @@ tests/
 requirements-dev.txt
 ```
 
-Generated presentation files still download in the browser, and the backend applies your JSON content to the bundled `data/template.pptx`. When OneDrive is configured, the generated file is also written back to the archive and a share link is returned.
+Generated presentation files still download in the browser, and the backend applies your JSON content to the bundled `data/template.pptx`. When OneDrive is configured, the generated file is also written back to the archive and download/edit links are returned.
 
 ## AI Assistant Guide (Muse AI)
 
@@ -450,20 +470,26 @@ The web app includes an assistant guide at `/guide/muse`. It allows church volun
 1. Extract dates, scriptures, and hymns from group messages.
 2. Retrieve complete lyrics from the church's OneDrive lyric library.
 3. Automatically validate and generate the presentation via the MCP server (`/mcp/`).
-4. Before generating, the Muse prompt asks the user two questions: whether to copy
-   last week's matters page and whether to write the new deck back to OneDrive. The
-   agent passes `use_onedrive` and `upload_to_onedrive` explicitly. If copying is
-   accepted, the server reads the strictly previous Sunday's `<YYYY-MM-DD>.pptx` from
-   the church archive, copies the announcements ("matters") slides (including
-   pictures, tables, grouped shapes, charts, and embedded chart data), and if
-   write-back is accepted, writes the new deck as `<service-date>.pptx` and returns
-   `uploaded_share_url`. If copying is declined, matters stays blank with no manual
-   reminder; if write-back is declined, no upload occurs and the agent returns the
-   downloadable file. Explicit `last_week_pptx_url`/`last_week_pptx_base64` still
-   override retrieval. If an older template has no recognizable matters layout, the
-   response lists candidate slides and the agent retries with
-   `last_week_slide_numbers`; if the date is ambiguous, it retries with
-   `last_week_filename`.
+4. By default, copy last week's matters and write the new deck back to OneDrive
+   without asking first. The server reads the strictly previous Sunday's
+   `<YYYY-MM-DD>.pptx` from the church archive, copies the announcements
+   ("matters") slides (including pictures, tables, grouped shapes, charts, and
+   embedded chart data), writes the new deck as `<service-date>.pptx`, and returns
+   `uploaded_share_url` (no-login download) and `uploaded_edit_url` (for
+   pastor/chair review and continued editing). The agent must display both links in
+   full and tell the user to forward the editable link to the group chat; on Sunday
+   the synced local OneDrive folder on the HP/DELL computers contains the deck.
+   Only if last week's matters cannot be found or copied does the agent ask the user
+   whether to continue with a blank matters page (retry with `use_onedrive=false`,
+   `upload_to_onedrive=true`) or provide the correct last-week file/pages. Older
+   templates may return `matters_candidates`; retry with
+   `last_week_slide_numbers`. Ambiguous dates retry with `last_week_filename`.
+   Users can also ask Muse to save a new song to the church OneDrive lyric library;
+   PPT generation does not upload songs automatically.
+5. Keep its stored instructions in sync: call `get_muse_prompt` or
+   `check_muse_prompt` before generating, replace stale instructions with the
+   returned prompt, and pass the current `muse_prompt_version`. Missing or stale
+   versions are rejected.
 
 ## MCP server
 
@@ -477,24 +503,36 @@ Available tools:
 
 - `get_sample_worship_data`: returns example worship JSON.
 - `validate_worship_data`: checks required sections, titles, and text lines.
+- `get_muse_prompt`: returns the current canonical Muse prompt, its version, and
+  the action the agent should take.
+- `check_muse_prompt`: compares the agent's stored prompt text or version with the
+  current canonical prompt and returns `up_to_date`, `current_version`, and
+  `current_prompt`.
 - `generate_worship_powerpoint`: accepts `data`, optional `service_date`
   (`YYYY-MM-DD`), optional `last_week_pptx_url` or `last_week_pptx_base64`,
   optional `last_week_slide_numbers` (1-based slide numbers), `use_onedrive`
   (default `true`), `last_week_filename` (exact archived filename for ambiguous
-  dates), and `upload_to_onedrive` (default `true`).
+  dates), `upload_to_onedrive` (default `true`), and required
+  `muse_prompt_version`.
   - Automatic mode resolves the archived `<previous-Sunday>.pptx`, copies its
     matters slides, writes the final deck back as `<service-date>.pptx`, and
-    creates an anonymous view link. It returns `last_week_source`,
+    creates anonymous view and edit links. It returns `last_week_source`,
     `last_week_filename`, `auto_last_week_attempted`, `auto_last_week_declined`,
     `auto_last_week_error`, `last_week_archive_candidates`, `uploaded_to_onedrive`,
     `uploaded_filename`, `uploaded_web_url`, `uploaded_view_url`,
-    `uploaded_share_url`, and `upload_error`, in addition to the existing fields.
-    Interactive clients should ask the user whether to copy last week's matters and
-    whether to write back, then pass `use_onedrive` and `upload_to_onedrive`
-    explicitly. `use_onedrive=false` leaves matters blank without a manual reminder;
-    `upload_to_onedrive=false` skips the upload and returns the deck as base64. `uploaded_share_url` adds
-    `download=1` to the anonymous link so it downloads the PPTX without a sign-in;
-    `uploaded_view_url` may require a Microsoft sign-in.
+    `uploaded_share_url`, `uploaded_edit_url`, `upload_error`, `upload_deferred`,
+    and `upload_deferred_reason`, in addition to the existing fields.
+  - Default behavior is to copy and write back without asking first. Only when the
+    matters slide cannot be found or copied does the agent ask the user whether to
+    continue with a blank matters page (retry with `use_onedrive=false`,
+    `upload_to_onedrive=true`) or provide the correct file/pages; write-back is
+    deferred in that case. `use_onedrive=false` leaves matters blank without a
+    manual reminder; `upload_to_onedrive=false` skips the upload and returns the
+    deck as base64. `uploaded_share_url` adds `download=1` to the anonymous link so
+    it downloads the PPTX without a sign-in; `uploaded_edit_url` is the link to
+    forward to the group chat for pastor/chair review and editing;
+    `uploaded_view_url` may require a Microsoft sign-in. On Sunday, the synced
+    local OneDrive folder on the HP/DELL computers contains the deck.
   - Explicit `last_week_pptx_url`/`last_week_pptx_base64` (or a REST upload)
     overrides automatic retrieval. The URL must be a public `https`
     OneDrive/SharePoint link; uploads and downloads are limited to 50 MB.
@@ -508,6 +546,25 @@ Available tools:
     fallback.
   - Large decks may exceed a client's tool response limit; the web app remains
     available for direct downloads.
+
+### Muse prompt version sync
+
+The canonical Muse instructions live in `src/shared/muse_prompt.txt`, with the
+church URLs in `src/shared/church_resources.json`. Both the web guide and the MCP
+server render this same file, so there is one source of truth. The server computes
+a short hash version from the prompt template and resource URLs.
+
+- Before generating, an agent should call `get_muse_prompt` or `check_muse_prompt`.
+  If its stored prompt is older or different, it must replace its stored
+  instructions with the returned prompt.
+- `generate_worship_powerpoint` requires `muse_prompt_version`. A missing or stale
+  version is rejected with an error that includes the current version and the
+  update instruction.
+- The MCP server cannot read Muse's internal stored prompt, so this is an explicit
+  version handshake: the agent must call the check/get tool and self-report the
+  version. The server enforces the version, not the agent's private prompt text.
+- The `/guide/muse` page loads the same shared prompt, so volunteers always copy
+  the current version.
 
 Start the server using the existing `python app.py` command after installing
 `requirements.txt`; MCP runs in the same process and Docker image. Generated

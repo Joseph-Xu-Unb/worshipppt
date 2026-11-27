@@ -371,7 +371,11 @@ class ArchiveTests(unittest.TestCase):
                     "parentReference": {"driveId": "drive1"},
                 }
 
-            def create_share_link(self, drive_id, item_id):
+            def create_share_link(
+                self, drive_id, item_id, *, link_type="view"
+            ):
+                if link_type == "edit":
+                    return "https://1drv.ms/u/edit"
                 return "https://1drv.ms/u/share"
 
             def make_anonymous_download_url(self, view_url):
@@ -385,6 +389,7 @@ class ArchiveTests(unittest.TestCase):
         self.assertEqual(
             result["share_url"], "https://1drv.ms/u/share?download=1"
         )
+        self.assertEqual(result["edit_url"], "https://1drv.ms/u/edit")
 
     def test_upload_falls_back_to_view_link(self):
         archive = OneDriveArchive(settings())
@@ -401,7 +406,11 @@ class ArchiveTests(unittest.TestCase):
                     "parentReference": {"driveId": "drive1"},
                 }
 
-            def create_share_link(self, drive_id, item_id):
+            def create_share_link(
+                self, drive_id, item_id, *, link_type="view"
+            ):
+                if link_type == "edit":
+                    return "https://1drv.ms/u/edit"
                 return "https://1drv.ms/u/share"
 
             def make_anonymous_download_url(self, view_url):
@@ -411,6 +420,7 @@ class ArchiveTests(unittest.TestCase):
         result = archive.upload_generated_deck(date(2026, 11, 29), b"PK-test")
         self.assertTrue(result["uploaded"])
         self.assertEqual(result["share_url"], "https://1drv.ms/u/share")
+        self.assertEqual(result["edit_url"], "https://1drv.ms/u/edit")
         self.assertTrue(any("匿名下载" in w for w in result["warnings"]))
 
     def test_list_files_does_not_deadlock_when_root_is_reentrant(self):

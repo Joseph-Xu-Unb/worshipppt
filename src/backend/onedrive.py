@@ -4,7 +4,7 @@ The archive is a public "anyone with the link can edit" folder owned by another
 Microsoft account.  A dedicated personal Microsoft account signs in once with
 the device-code flow; the server keeps only the refresh token and uses delegated
 Graph permissions to read last week's deck, write this week's deck back, and
-create a view link for the new file.
+create view and edit links for the new file.
 
 No password is ever stored.  The retrieval side only issues GET requests.  The
 write side only uploads the generated deck into the configured archive folder
@@ -883,14 +883,18 @@ class GraphClient:
             raise OneDriveUploadError("OneDrive 上传完成，但没有返回文件信息。")
         return result
 
-    def create_share_link(self, drive_id: str, item_id: str) -> str:
+    def create_share_link(
+        self, drive_id: str, item_id: str, *, link_type: str = "view"
+    ) -> str:
         if not drive_id or not item_id:
             raise OneDriveUploadError("无法为上传文件创建分享链接。")
+        if link_type not in ("view", "edit"):
+            raise OneDriveUploadError(f"不支持的分享链接类型：{link_type}")
         url = (
             f"{GRAPH_BASE}/drives/{urllib.parse.quote(drive_id, safe='')}"
             f"/items/{urllib.parse.quote(item_id, safe='')}/createLink"
         )
-        body = json.dumps({"type": "view", "scope": "anonymous"}).encode("utf-8")
+        body = json.dumps({"type": link_type, "scope": "anonymous"}).encode("utf-8")
         payload = self._request_json(
             "POST", url, data=body, headers={"Content-Type": "application/json"}
         )
@@ -898,6 +902,11 @@ class GraphClient:
         web_url = str(link.get("webUrl") or "")
         if not web_url:
             raise OneDriveUploadError("OneDrive 没有返回分享链接。")
+        actual_type = str(link.get("type") or "").lower()
+        if link_type == "edit" and actual_type and actual_type != "edit":
+            raise OneDriveUploadError(
+                "OneDrive 未授予可编辑分享权限（返回的是 view 链接）。"
+            )
         return web_url
 
     def make_anonymous_download_url(
@@ -1079,6 +1088,7 @@ class OneDriveArchive:
                 "web_url": "",
                 "view_url": "",
                 "share_url": "",
+                "edit_url": "",
                 "error": "OneDrive 写回未启用。",
                 "warnings": [],
             }
@@ -1089,6 +1099,7 @@ class OneDriveArchive:
                 "web_url": "",
                 "view_url": "",
                 "share_url": "",
+                "edit_url": "",
                 "error": "当前 OneDrive 权限不含 Files.ReadWrite，不能写回。",
                 "warnings": [],
             }
@@ -1118,11 +1129,20 @@ class OneDriveArchive:
             web_url = str(uploaded.get("webUrl") or "")
             view_url = ""
             share_url = ""
+            edit_url = ""
             try:
                 view_url = self.graph.create_share_link(drive_id, item_id)
             except OneDriveError as exc:
                 warnings.append(
                     f"文件已写回，但创建分享链接失败：{exc}"
+                )
+            try:
+                edit_url = self.graph.create_share_link(
+                    drive_id, item_id, link_type="edit"
+                )
+            except OneDriveError as exc:
+                warnings.append(
+                    f"文件已写回，但创建可编辑分享链接失败：{exc}"
                 )
             if view_url:
                 try:
@@ -1138,6 +1158,7 @@ class OneDriveArchive:
                 "web_url": web_url,
                 "view_url": view_url,
                 "share_url": share_url,
+                "edit_url": edit_url,
                 "error": "",
                 "warnings": warnings,
             }
@@ -1148,6 +1169,7 @@ class OneDriveArchive:
                 "web_url": "",
                 "view_url": "",
                 "share_url": "",
+                "edit_url": "",
                 "error": str(exc),
                 "warnings": warnings,
             }
@@ -1158,6 +1180,7 @@ class OneDriveArchive:
                 "web_url": "",
                 "view_url": "",
                 "share_url": "",
+                "edit_url": "",
                 "error": "OneDrive 写回时发生未知错误。",
                 "warnings": warnings,
             }

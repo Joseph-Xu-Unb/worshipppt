@@ -12,6 +12,7 @@ from pptx import Presentation
 
 from src.backend import app as app_module
 from src.backend.app import generate_worship_powerpoint, get_sample_worship_data
+from src.backend.muse_prompt import MUSE_PROMPT_VERSION
 from src.backend.onedrive import AutoLastWeekResult, reset_onedrive_cache_for_tests
 
 
@@ -47,9 +48,15 @@ TEST_DECK = build_last_week_deck()
 
 
 class StubArchive:
-    def __init__(self, uploaded=True, share_url="https://1drv.ms/u/share"):
+    def __init__(
+        self,
+        uploaded=True,
+        share_url="https://1drv.ms/u/share",
+        edit_url="https://1drv.ms/u/edit",
+    ):
         self.uploaded = uploaded
         self.share_url = share_url
+        self.edit_url = edit_url
 
     def upload_generated_deck(self, service_date, content):
         if not self.uploaded:
@@ -57,7 +64,9 @@ class StubArchive:
                 "uploaded": False,
                 "filename": f"{service_date.isoformat()}.pptx",
                 "web_url": "",
+                "view_url": "",
                 "share_url": "",
+                "edit_url": "",
                 "error": "write failed",
                 "warnings": [],
             }
@@ -65,7 +74,9 @@ class StubArchive:
             "uploaded": True,
             "filename": f"{service_date.isoformat()}.pptx",
             "web_url": "https://onedrive.live.com/item",
+            "view_url": "https://onedrive.live.com/view",
             "share_url": self.share_url,
+            "edit_url": self.edit_url,
             "error": "",
             "warnings": [],
         }
@@ -85,6 +96,7 @@ class AutoGenerationTests(unittest.TestCase):
                 get_sample_worship_data(),
                 "2026-11-29",
                 upload_to_onedrive=False,
+                muse_prompt_version=MUSE_PROMPT_VERSION,
             )
 
         self.assertTrue(result["matters_copied"])
@@ -107,6 +119,7 @@ class AutoGenerationTests(unittest.TestCase):
             "2026-11-29",
             use_onedrive=False,
             upload_to_onedrive=False,
+            muse_prompt_version=MUSE_PROMPT_VERSION,
         )
         self.assertFalse(result["matters_copied"])
         self.assertEqual(result["last_week_source"], "none")
@@ -129,6 +142,7 @@ class AutoGenerationTests(unittest.TestCase):
                 get_sample_worship_data(),
                 "2026-11-29",
                 upload_to_onedrive=False,
+                muse_prompt_version=MUSE_PROMPT_VERSION,
             )
 
         self.assertFalse(result["matters_copied"])
@@ -140,6 +154,30 @@ class AutoGenerationTests(unittest.TestCase):
         self.assertTrue(any("archive unavailable" in w for w in result["warnings"]))
         Presentation(BytesIO(base64.b64decode(result["pptx_base64"])))
 
+    def test_matters_failure_defers_upload(self):
+        with patch(
+            "src.backend.onedrive.auto_last_week_pptx",
+            return_value=AutoLastWeekResult(
+                attempted=True,
+                error="archive unavailable",
+                candidates=[{"name": "2026-11-22.pptx"}],
+            ),
+        ), patch("src.backend.onedrive.get_onedrive_archive") as archive:
+            result = generate_worship_powerpoint(
+                get_sample_worship_data(),
+                "2026-11-29",
+                upload_to_onedrive=True,
+                muse_prompt_version=MUSE_PROMPT_VERSION,
+            )
+
+        self.assertFalse(result["matters_copied"])
+        self.assertFalse(result["uploaded_to_onedrive"])
+        self.assertTrue(result["upload_deferred"])
+        self.assertIn("继续", result["upload_deferred_reason"])
+        self.assertIn("继续", result["reminder"])
+        self.assertIn("继续", result["post_generation_prompt"])
+        archive.assert_not_called()
+
     def test_explicit_base64_takes_precedence(self):
         with patch("src.backend.onedrive.auto_last_week_pptx") as auto:
             auto.side_effect = AssertionError("automatic retrieval should not run")
@@ -148,6 +186,7 @@ class AutoGenerationTests(unittest.TestCase):
                 "2026-11-29",
                 last_week_pptx_base64=base64.b64encode(TEST_DECK).decode("ascii"),
                 upload_to_onedrive=False,
+                muse_prompt_version=MUSE_PROMPT_VERSION,
             )
         self.assertTrue(result["matters_copied"])
         self.assertEqual(result["last_week_source"], "base64")
@@ -168,11 +207,15 @@ class AutoGenerationTests(unittest.TestCase):
                 get_sample_worship_data(),
                 "2026-11-29",
                 upload_to_onedrive=True,
+                muse_prompt_version=MUSE_PROMPT_VERSION,
             )
         self.assertTrue(result["uploaded_to_onedrive"])
         self.assertEqual(result["uploaded_filename"], "2026-11-29.pptx")
         self.assertEqual(result["uploaded_share_url"], "https://1drv.ms/u/share")
+        self.assertEqual(result["uploaded_edit_url"], "https://1drv.ms/u/edit")
         self.assertIn("https://1drv.ms/u/share", result["reminder"])
+        self.assertIn("https://1drv.ms/u/edit", result["reminder"])
+        self.assertFalse(result["upload_deferred"])
 
     def test_upload_failure_is_soft(self):
         with patch(
@@ -190,6 +233,7 @@ class AutoGenerationTests(unittest.TestCase):
                 get_sample_worship_data(),
                 "2026-11-29",
                 upload_to_onedrive=True,
+                muse_prompt_version=MUSE_PROMPT_VERSION,
             )
         self.assertFalse(result["uploaded_to_onedrive"])
         self.assertEqual(result["upload_error"], "write failed")
@@ -259,6 +303,40 @@ class RestTests(unittest.TestCase):
         upload = json.loads(response.headers["X-Worship-Upload-Metadata"])
         self.assertFalse(upload["uploaded"])
         self.assertTrue(response.content.startswith(b"PK"))
+
+    def test_generate_defers_upload_when_matters_fail(self):
+        sample = json.dumps(get_sample_worship_data()).encode("utf-8")
+        with patch(
+            "src.backend.onedrive.auto_last_week_pptx",
+            return_value=AutoLastWeekResult(
+                attempted=True,
+                error="archive unavailable",
+                candidates=[{"name": "2026-11-22.pptx"}],
+            ),
+        ), patch("src.backend.onedrive.get_onedrive_archive") as archive:
+            response = self.client.post(
+                "/api/generate",
+                data={
+                    "date": "2026-11-29",
+                    "use_onedrive": "true",
+                    "upload_to_onedrive": "true",
+                },
+                files={
+                    "data": (
+                        "worship.json",
+                        sample,
+                        "application/json",
+                    )
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["X-Worship-Matters-Copied"], "0")
+        upload = json.loads(response.headers["X-Worship-Upload-Metadata"])
+        self.assertFalse(upload["uploaded"])
+        self.assertTrue(upload["deferred"])
+        self.assertIn("继续", upload["deferred_reason"])
+        archive.assert_not_called()
 
     def test_generate_rejects_invalid_date(self):
         sample = json.dumps(get_sample_worship_data()).encode("utf-8")

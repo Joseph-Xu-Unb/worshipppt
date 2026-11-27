@@ -24,6 +24,11 @@ from mcp.server.transport_security import TransportSecuritySettings
 from src.backend import onedrive
 from src.backend.content import is_marker, section_pages, validate_section
 from src.backend.matters import copy_matters_slides, list_matters_candidates
+from src.backend.muse_prompt import (
+    MUSE_PROMPT,
+    MUSE_PROMPT_VERSION,
+    WORSHIP_ARCHIVE_URL,
+)
 from src.backend.pptx_inputs import (
     MAX_LAST_WEEK_PPTX_BYTES,
     decode_base64_pptx as _decode_pptx_base64,
@@ -43,10 +48,6 @@ SAMPLE_JSON_PATH = DATA_DIR / "sample_worship_data.json"
 SAMPLE_PPT_PATH = DATA_DIR / "2026-05-17.pptx"
 REQUIRED_SECTIONS = ("call_to_worship", "hymns", "theme_scripture", "response_hymn")
 PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-
-WORSHIP_ARCHIVE_URL = (
-    "https://1drv.ms/f/c/1b40ff3184add23e/IgBvMYWWe1v8RpbhkkjUr142Aar3qCdtzJEPobKBbub6zMU?e=lFGb49"
-)
 
 MATTERS_COPY_REMINDER = (
     "重要后续步骤（事项汇报页复制）：模板生成的事项汇报页（matters）默认为空白。请前往往期崇拜 PPT 归档库（"
@@ -77,11 +78,12 @@ MATTERS_COPIED_REMINDER = (
 )
 
 MATTERS_COPY_GUIDE_PREFIX = (
-    "Preferred: let the server retrieve last week's deck from the church OneDrive "
-    "automatically. Call generate_worship_powerpoint with service_date; the server "
-    "copies the matters slides, writes the new deck back to the archive, and returns "
-    "uploaded_share_url. Explicit last_week_pptx_url or last_week_pptx_base64 "
-    "overrides automatic retrieval.\n"
+    "Default: let the server retrieve last week's deck from the church OneDrive "
+    "automatically and write the new deck back. Call generate_worship_powerpoint with "
+    "service_date; the server copies the matters slides, writes the new deck back to the "
+    "archive, and returns uploaded_share_url and uploaded_edit_url. Do not ask the user "
+    "whether to copy or write back first. Only if last week's matters cannot be found, "
+    "ask the user whether to continue without matters or provide the correct file/pages. "
     "If automatic mode is unavailable, follow these manual instructions:\n\n"
 )
 
@@ -91,27 +93,33 @@ MATTERS_CANDIDATES_PROMPT = (
     "layout、text_preview，以及是否有图片/表格/图表/分组。"
     "根据这些内容判断哪些是上周的事项汇报/公告页，然后用同样的 last_week_pptx_url "
     "或 last_week_pptx_base64，并传入 last_week_slide_numbers=[页码,...] 再次调用 "
-    "generate_worship_powerpoint。若候选都不正确，请直接读取上周 PPT 的内容，"
-    "按事项汇报的实际内容选择页码；不要编造事项内容。"
+    "generate_worship_powerpoint。若候选都不正确，请停下来问用户："
+    "是继续生成（不复制事项页，matters 留空），还是由用户提供正确的上周文件/页码；"
+    "如果用户选择继续，用 use_onedrive=false、upload_to_onedrive=true 重新生成并写回。"
+    "不要编造事项内容，也不要在用户回答前把空白事项页当作最终版本。"
 )
 
 MATTERS_NO_CANDIDATES_PROMPT = (
     "Python 未能在上周 PPT 中找到事项汇报页，也无法列出候选页。"
-    "请直接读取上周 PPT，按内容找到上周的事项汇报/公告页，并用 "
-    "last_week_slide_numbers=[页码,...] 再次调用 generate_worship_powerpoint；"
-    "若无法读取文件，请说明具体原因，不要编造事项内容。"
+    "请停下来问用户：是继续生成（不复制事项页，matters 留空），还是由用户提供"
+    "正确的上周文件/页码；如果用户选择继续，用 use_onedrive=false、"
+    "upload_to_onedrive=true 重新生成并写回。若用户无法提供文件，请说明具体原因，"
+    "不要编造事项内容，也不要在用户回答前把空白事项页当作最终版本。"
 )
 
 AUTO_LAST_WEEK_REMINDER = (
     "未能自动从 OneDrive 读取上周 PPT：{error}。本次生成的事项汇报页留空。"
-    "请根据 last_week_archive_candidates 选择文件，或手动上传上周 PPT/提供下载链接。"
+    "请根据 last_week_archive_candidates 选择文件，或请用户上传上周 PPT/提供下载链接；"
+    "如果用户选择继续，用 use_onedrive=false、upload_to_onedrive=true 重新生成并写回。"
 )
 
 AUTO_LAST_WEEK_PROMPT = (
     "自动读取 OneDrive 未唯一确定上周文件。请查看 last_week_archive_candidates"
     "（name、date、modified、size），选择正确文件名后用 last_week_filename=\"...\""
-    "并保留相同 service_date 重试；如果候选都不正确，请用户手动上传或提供链接，"
-    "不要编造事项内容。"
+    "并保留相同 service_date 重试；如果仍无法确定，请停下来问用户："
+    "是继续生成（不复制事项页，matters 留空），还是由用户提供上周文件/下载链接。"
+    "如果用户选择继续，用 use_onedrive=false、upload_to_onedrive=true 重新生成并写回。"
+    "不要编造事项内容，也不要在用户回答前把空白事项页当作最终版本。"
 )
 
 AUTO_MATTERS_CANDIDATES_PROMPT = (
@@ -120,43 +128,64 @@ AUTO_MATTERS_CANDIDATES_PROMPT = (
     "slide_number、layout、text_preview 和内容标记，选择正确页码；保留相同 "
     "service_date（以及可选的 last_week_filename），传入 "
     "last_week_slide_numbers=[...] 重新调用 generate_worship_powerpoint。"
-    "不要编造事项内容。"
+    "若候选都不正确，请停下来问用户：是继续生成（不复制事项页，matters 留空），"
+    "还是由用户提供正确的文件/页码；如果用户选择继续，用 use_onedrive=false、"
+    "upload_to_onedrive=true 重新生成并写回。不要编造事项内容。"
 )
 
 AUTO_MATTERS_NO_CANDIDATES_PROMPT = (
     "服务器已从 OneDrive 获取上周 PPT，但未能找到事项汇报页或候选页。"
-    "请用户手动提供上周文件或页码；不要编造事项内容。"
+    "请停下来问用户：是继续生成（不复制事项页，matters 留空），还是由用户提供"
+    "正确的文件/页码；如果用户选择继续，用 use_onedrive=false、"
+    "upload_to_onedrive=true 重新生成并写回。不要编造事项内容，"
+    "也不要在用户回答前把空白事项页当作最终版本。"
 )
 
 UPLOAD_SUCCESS_REMINDER = (
-    "已把本次 PPT 写回 OneDrive 归档：{filename}。分享链接：{share_url}"
+    "已把本次 PPT 写回 OneDrive 归档：{filename}。下载链接：{share_url}"
 )
 
+UPLOAD_EDIT_REMINDER = "可编辑分享链接：{edit_url}"
+
 UPLOAD_FAILED_REMINDER = "OneDrive 写回失败：{error}"
+
+UPLOAD_DEFERRED_REASON = (
+    "上周事项汇报页未成功复制，已暂缓写回 OneDrive。"
+    "请先问用户：是继续生成（不复制事项页，matters 留空），还是提供正确的上周文件/页码。"
+    "如果用户选择继续，用 use_onedrive=false、upload_to_onedrive=true 重新生成并写回。"
+)
 
 MCP_INSTRUCTIONS = (
     "WorshipPPT Presentation Server.\n"
     "Generates Sunday worship service presentations (PPTX) from structured JSON worship data.\n"
-    "AUTOMATIC ONEDRIVE MODE (preferred): call generate_worship_powerpoint with service_date only. "
+    "DEFAULT BEHAVIOUR (do not ask first): call generate_worship_powerpoint with service_date. "
     "The server looks in the church archive for the strictly previous Sunday's <YYYY-MM-DD>.pptx, "
     "copies its matters/announcements slides, uploads the new deck back to the archive as "
-    "<service_date>.pptx, creates an anonymous view link, and returns uploaded_share_url. "
-    "After a successful generation, present uploaded_share_url to the user; it is a no-login "
-    "download=1 link that downloads the PPTX directly. uploaded_view_url may require a Microsoft sign-in. "
-    "Do not ask the user to visit OneDrive or use browser download history when automatic mode succeeds.\n"
-    "INTERACTIVE CLIENTS: before generating, ask the user (1) whether to copy last week's matters slide "
-    "and (2) whether to write the new deck back to OneDrive. Pass use_onedrive and upload_to_onedrive "
-    "explicitly from their answers. If the user declines copying, matters stays blank and no manual reminder "
-    "is needed. If the user declines write-back, do not upload; return the pptx_base64 file instead.\n"
-    "If the response has last_week_archive_candidates or auto_last_week_error, choose a filename and retry "
-    "with last_week_filename=\"...\", or provide an explicit last_week_pptx_url/last_week_pptx_base64. "
-    "If matters_candidates is returned for an older template, retry with last_week_slide_numbers=[...]. "
-    "Do not invent announcement content.\n"
-    "If automatic mode is configured but returns last_week_archive_candidates or auto_last_week_error, choose a "
-    "filename and retry, or ask the user for a manual upload or download link. "
-    "If automatic mode is not configured, the response includes manual instructions; only then use the archive "
-    f"link ({WORSHIP_ARCHIVE_URL}) or browser download history (Ctrl+J / chrome://downloads). "
-    "The server never stores the OneDrive password; a dedicated account authorizes it once through device code."
+    "<service_date>.pptx, creates anonymous view and edit links, and returns uploaded_share_url "
+    "and uploaded_edit_url. Do not ask the user whether to copy last week's matters or whether to "
+    "write back; those are the defaults.\n"
+    "On success, display the complete uploaded_edit_url (never truncate or shorten it) and tell the "
+    "user to forward it to the church group chat so the pastor and chair can review and continue "
+    "editing on that shared link. Also show the complete uploaded_share_url (no-login download=1 "
+    "link). uploaded_view_url may require a Microsoft sign-in. Tell the user that on Sunday they can "
+    "open the synced local OneDrive folder on the HP and DELL computers and open <service_date>.pptx "
+    "directly.\n"
+    f"PROMPT SYNC: current Muse prompt version is {MUSE_PROMPT_VERSION}. The server cannot read "
+    "Muse's internal stored prompt. Before generating, call check_muse_prompt or get_muse_prompt; "
+    "if your stored prompt version differs, replace your stored instructions with the returned "
+    "prompt. Always pass muse_prompt_version to generate_worship_powerpoint; missing or stale "
+    "versions are rejected.\n"
+    "ONLY IF last week's matters cannot be found or copied (no unique archive file, no matters slide, "
+    "no candidates, or a copy error): stop and ask the user whether to (a) continue without matters "
+    "(then retry with use_onedrive=false and upload_to_onedrive=true, leaving matters blank) or "
+    "(b) provide the correct last-week file or page numbers. Use last_week_filename or "
+    "last_week_slide_numbers when provided. Never invent announcement content. If upload_deferred is "
+    "true, tell the user and do not present the deck as final until they choose.\n"
+    "If the user explicitly asks to skip copying or write-back, pass use_onedrive=false and/or "
+    "upload_to_onedrive=false. If automatic mode is not configured, the response includes manual "
+    f"instructions and the archive link ({WORSHIP_ARCHIVE_URL}) / browser download history fallback.\n"
+    "For new songs, tell the user they can ask you to save the song to the church OneDrive lyric "
+    "library; PPT generation does not upload songs automatically."
 )
 
 mcp_server = FastMCP(
@@ -402,8 +431,11 @@ def _upload_deck(
         "web_url": "",
         "view_url": "",
         "share_url": "",
+        "edit_url": "",
         "error": "",
         "warnings": [],
+        "deferred": False,
+        "deferred_reason": "",
     }
     if not enabled:
         return empty
@@ -462,9 +494,19 @@ def _build_result_text(
             filename=upload.get("filename") or "",
             share_url=upload.get("share_url") or upload.get("web_url") or "",
         )
+        if upload.get("edit_url"):
+            suffix = (
+                f"{suffix}\n"
+                + UPLOAD_EDIT_REMINDER.format(edit_url=upload["edit_url"])
+            )
         reminder = f"{reminder}\n\n{suffix}" if reminder else suffix
     elif upload.get("error"):
         suffix = UPLOAD_FAILED_REMINDER.format(error=upload["error"])
+        all_warnings.append(suffix)
+        reminder = f"{reminder}\n\n{suffix}" if reminder else suffix
+
+    if upload.get("deferred"):
+        suffix = upload.get("deferred_reason") or UPLOAD_DEFERRED_REASON
         all_warnings.append(suffix)
         reminder = f"{reminder}\n\n{suffix}" if reminder else suffix
 
@@ -494,8 +536,11 @@ def _upload_metadata(upload: dict) -> str:
             "web_url": upload.get("web_url") or "",
             "view_url": upload.get("view_url") or "",
             "share_url": upload.get("share_url") or "",
+            "edit_url": upload.get("edit_url") or "",
             "error": upload.get("error") or "",
             "warnings": upload.get("warnings") or [],
+            "deferred": bool(upload.get("deferred")),
+            "deferred_reason": upload.get("deferred_reason") or "",
         },
         ensure_ascii=True,
         separators=(",", ":"),
@@ -518,6 +563,10 @@ def get_sample_worship_data() -> dict:
     uploaded_share_url. Explicit last_week_pptx_url/base64 inputs override automatic
     retrieval. If automatic mode is unavailable, the response includes the archive
     link and manual fallback instructions.
+
+    PROMPT SYNC: before generating, call get_muse_prompt or check_muse_prompt and
+    pass the current muse_prompt_version to generate_worship_powerpoint. Missing or
+    stale versions are rejected so Muse updates its stored instructions.
     """
     data = json.loads(SAMPLE_JSON_PATH.read_text(encoding="utf-8"))
     for song in [*data["hymns"], data["response_hymn"]]:
@@ -540,6 +589,54 @@ def validate_worship_data(data: dict) -> dict:
 
 
 @mcp_server.tool()
+def get_muse_prompt() -> dict:
+    """Return the current canonical Muse prompt and its version.
+
+    Call this before generate_worship_powerpoint. If your stored prompt differs,
+    replace your stored instructions with ``prompt``. Then pass
+    ``muse_prompt_version`` to generate_worship_powerpoint.
+    """
+    return {
+        "version": MUSE_PROMPT_VERSION,
+        "prompt": MUSE_PROMPT,
+        "action": (
+            "Replace your stored Muse instructions with prompt, then pass "
+            f'muse_prompt_version="{MUSE_PROMPT_VERSION}" to '
+            "generate_worship_powerpoint."
+        ),
+    }
+
+
+@mcp_server.tool()
+def check_muse_prompt(prompt_version: str = "", prompt_text: str = "") -> dict:
+    """Compare your stored Muse prompt with the server's canonical prompt.
+
+    Pass ``prompt_text`` if you can read your stored instructions; otherwise pass
+    the version you currently have. The server cannot read Muse's internal prompt,
+    so this check plus ``muse_prompt_version`` is an explicit update handshake.
+    """
+    provided_text = prompt_text.strip()
+    matches = (
+        provided_text == MUSE_PROMPT
+        if provided_text
+        else prompt_version.strip() == MUSE_PROMPT_VERSION
+    )
+    return {
+        "up_to_date": matches,
+        "current_version": MUSE_PROMPT_VERSION,
+        "current_prompt": MUSE_PROMPT,
+        "action": (
+            "Proceed and pass the current muse_prompt_version to "
+            "generate_worship_powerpoint."
+            if matches
+            else "Replace your stored Muse instructions with current_prompt, then "
+            f'pass muse_prompt_version="{MUSE_PROMPT_VERSION}" to '
+            "generate_worship_powerpoint."
+        ),
+    }
+
+
+@mcp_server.tool()
 def generate_worship_powerpoint(
     data: dict,
     service_date: str = "",
@@ -549,17 +646,19 @@ def generate_worship_powerpoint(
     use_onedrive: bool = True,
     last_week_filename: str = "",
     upload_to_onedrive: bool = True,
+    muse_prompt_version: str = "",
 ) -> dict:
     """Generate a PPTX with the bundled template. Decode pptx_base64 to save the file.
 
     Automatic mode (preferred): pass service_date and let the server find the
     strictly previous Sunday's <YYYY-MM-DD>.pptx in the church OneDrive archive,
     copy its matters/announcements slides, upload the final deck back to the
-    archive, and create an anonymous view link. The response includes
-    last_week_source, last_week_filename, uploaded_share_url, uploaded_view_url,
-    and related fields. uploaded_share_url is a no-login download=1 link; present it
-    to the user when it is present. uploaded_view_url is the OneDrive view link and
-    may require a Microsoft sign-in.
+    archive, and create anonymous view and edit links. The response includes
+    last_week_source, last_week_filename, uploaded_share_url, uploaded_edit_url,
+    uploaded_view_url, and related fields. uploaded_share_url is a no-login
+    download=1 link; uploaded_edit_url is the link to forward to the group chat
+    for pastor/chair review and editing. uploaded_view_url may require a Microsoft
+    sign-in.
 
     Explicit last_week_pptx_url or last_week_pptx_base64 overrides automatic
     retrieval. If the archive has multiple matching files, pass last_week_filename
@@ -569,12 +668,28 @@ def generate_worship_powerpoint(
     If automatic mode is unavailable, the response includes manual-copy
     instructions and the browser-download-history fallback.
 
-    Interactive clients should first ask whether to copy last week's matters and
-    whether to write the new deck back, then pass use_onedrive and
-    upload_to_onedrive explicitly. use_onedrive=False leaves the matters slide
-    blank without a manual-copy reminder. upload_to_onedrive=False returns the
-    deck only as base64/HTTP download and does not upload it.
+    Default behavior: do not ask first. Copy last week's matters and write the new
+    deck back. Only when last week's matters cannot be found or copied, ask the
+    user whether to continue without matters (then retry with use_onedrive=False
+    and upload_to_onedrive=True) or provide the correct file/page numbers. Pass
+    use_onedrive=False only when the user explicitly opts out of copying;
+    upload_to_onedrive=False skips the upload and returns the deck as base64/HTTP.
+    When upload succeeds, display uploaded_edit_url in full and tell the user to
+    forward it to the group chat for pastor/chair review and editing; also show
+    uploaded_share_url. On Sunday, the synced local OneDrive folder on the HP and
+    DELL computers contains <service_date>.pptx.
+
+    Prompt sync: call get_muse_prompt or check_muse_prompt before generating. You
+    must pass the current muse_prompt_version; missing or stale versions are
+    rejected so Muse replaces its stored instructions with the current prompt.
     """
+    if muse_prompt_version.strip() != MUSE_PROMPT_VERSION:
+        raise ValueError(
+            "Muse prompt is out of date. Call get_muse_prompt or "
+            "check_muse_prompt, replace your stored instructions with the "
+            "returned prompt, then retry with "
+            f'muse_prompt_version="{MUSE_PROMPT_VERSION}".'
+        )
     error = _validate_data(data)
     if error:
         raise ValueError(error)
@@ -594,9 +709,16 @@ def generate_worship_powerpoint(
         )
 
     deck = _generate_deck(data, selected_date, selection, last_week_slide_numbers)
+    matters_missing = bool(use_onedrive and deck.matters_copied == 0)
+    defer_upload = bool(upload_to_onedrive and matters_missing)
     upload = _upload_deck(
-        selected_date, deck.content, enabled=upload_to_onedrive
+        selected_date,
+        deck.content,
+        enabled=upload_to_onedrive and not defer_upload,
     )
+    if defer_upload:
+        upload["deferred"] = True
+        upload["deferred_reason"] = UPLOAD_DEFERRED_REASON
     all_warnings, reminder, post_generation_prompt = _build_result_text(
         deck, upload
     )
@@ -622,7 +744,10 @@ def generate_worship_powerpoint(
         "uploaded_web_url": upload.get("web_url") or "",
         "uploaded_view_url": upload.get("view_url") or "",
         "uploaded_share_url": upload.get("share_url") or "",
+        "uploaded_edit_url": upload.get("edit_url") or "",
         "upload_error": upload.get("error") or "",
+        "upload_deferred": bool(upload.get("deferred")),
+        "upload_deferred_reason": upload.get("deferred_reason") or "",
     }
 
 
@@ -823,12 +948,17 @@ async def generate(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    matters_missing = bool(use_onedrive and deck.matters_copied == 0)
+    defer_upload = bool(upload_to_onedrive and matters_missing)
     upload = await run_in_threadpool(
         _upload_deck,
         parsed_date,
         deck.content,
-        enabled=upload_to_onedrive,
+        enabled=upload_to_onedrive and not defer_upload,
     )
+    if defer_upload:
+        upload["deferred"] = True
+        upload["deferred_reason"] = UPLOAD_DEFERRED_REASON
     all_warnings, _reminder, _post_prompt = _build_result_text(deck, upload)
 
     response = StreamingResponse(BytesIO(deck.content), media_type=PPTX_MIME)

@@ -16,11 +16,14 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from src.backend.app import (
     _is_allowed_onedrive_url,
     _validate_data,
+    check_muse_prompt,
     generate_worship_powerpoint,
+    get_muse_prompt,
     get_sample_worship_data,
 )
 from src.backend.content import section_pages, split_lines, validate_section
 from src.backend.matters import copy_matters_slides, list_matters_candidates
+from src.backend.muse_prompt import MUSE_PROMPT, MUSE_PROMPT_VERSION
 from src.backend.worship import generate_worship_ppt
 
 
@@ -99,7 +102,11 @@ class PaginationTests(unittest.TestCase):
             self.assertIsNone(_validate_data(data))
             with tempfile.TemporaryDirectory() as directory:
                 output = Path(directory) / "test.pptx"
-                result = generate_worship_powerpoint(data, "2026-10-25")
+                result = generate_worship_powerpoint(
+                    data,
+                    "2026-10-25",
+                    muse_prompt_version=MUSE_PROMPT_VERSION,
+                )
                 self.assertFalse(result["matters_copied"])
                 self.assertEqual(result["matters_slides_copied"], 0)
                 self.assertIn("1drv.ms", result["reminder"])
@@ -443,6 +450,7 @@ class MattersCopyTests(unittest.TestCase):
                 last_week_pptx_base64=base64.b64encode(
                     source.read_bytes()
                 ).decode("ascii"),
+                muse_prompt_version=MUSE_PROMPT_VERSION,
             )
             self.assertTrue(result["matters_copied"])
             self.assertEqual(result["matters_slides_copied"], 1)
@@ -509,6 +517,7 @@ class MattersCopyTests(unittest.TestCase):
                 get_sample_worship_data(),
                 "2026-11-29",
                 last_week_pptx_base64=encoded,
+                muse_prompt_version=MUSE_PROMPT_VERSION,
             )
             self.assertFalse(result["matters_copied"])
             self.assertTrue(result["matters_candidates"])
@@ -527,6 +536,7 @@ class MattersCopyTests(unittest.TestCase):
                 "2026-11-29",
                 last_week_pptx_base64=encoded,
                 last_week_slide_numbers=numbers[:1],
+                muse_prompt_version=MUSE_PROMPT_VERSION,
             )
             self.assertTrue(retry["matters_copied"])
             self.assertEqual(retry["matters_slides_copied"], 1)
@@ -554,6 +564,35 @@ class MattersCopyTests(unittest.TestCase):
                 "https://onedrive.live.com.example.com/file"
             )
         )
+
+
+class MusePromptTests(unittest.TestCase):
+    def test_get_and_check_prompt(self):
+        info = get_muse_prompt()
+        self.assertEqual(info["version"], MUSE_PROMPT_VERSION)
+        self.assertIn("提示词版本同步", info["prompt"])
+        self.assertTrue(
+            check_muse_prompt(prompt_version=MUSE_PROMPT_VERSION)["up_to_date"]
+        )
+        self.assertFalse(check_muse_prompt(prompt_version="old")["up_to_date"])
+        self.assertTrue(check_muse_prompt(prompt_text=MUSE_PROMPT)["up_to_date"])
+        self.assertFalse(
+            check_muse_prompt(prompt_text="old prompt")["up_to_date"]
+        )
+
+    def test_generate_rejects_missing_or_stale_prompt_version(self):
+        with self.assertRaises(ValueError) as missing:
+            generate_worship_powerpoint(
+                get_sample_worship_data(), "2026-11-29"
+            )
+        self.assertIn("out of date", str(missing.exception))
+
+        with self.assertRaises(ValueError):
+            generate_worship_powerpoint(
+                get_sample_worship_data(),
+                "2026-11-29",
+                muse_prompt_version="stale",
+            )
 
 
 if __name__ == "__main__":
