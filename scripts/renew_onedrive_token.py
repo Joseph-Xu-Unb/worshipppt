@@ -76,6 +76,46 @@ def _open_json(
         raise RenewError("服务返回了无法解析的 JSON。") from None
 
 
+def render_find_service(
+    api_key: str,
+    name: str = "worshipppt",
+    *,
+    opener=None,
+) -> str | None:
+    """Resolve a Render service ID by name (avoids stale/typo'd IDs)."""
+    payload = _open_json(
+        "GET",
+        f"{RENDER_API}/services?limit=100",
+        headers={"Authorization": f"Bearer {api_key}"},
+        opener=opener,
+    )
+    if not isinstance(payload, list):
+        raise RenewError("Render 服务列表响应异常。")
+    matches = []
+    for item in payload:
+        service = item.get("service") if isinstance(item, dict) else None
+        if not isinstance(service, dict):
+            service = item if isinstance(item, dict) else {}
+        item_name = str(service.get("name") or "")
+        if item_name.lower() != name.lower():
+            continue
+        if service.get("suspended") is True:
+            continue
+        service_type = str(service.get("type") or "")
+        if service_type and service_type != "web_service":
+            continue
+        service_id = str(service.get("id") or "")
+        if service_id:
+            matches.append(service_id)
+    unique = list(dict.fromkeys(matches))
+    if len(unique) > 1:
+        raise RenewError(
+            f"Render 中找到多个名为 {name} 的 Web Service，"
+            "请设置 RENDER_SERVICE_ID 指向正确服务。"
+        )
+    return unique[0] if unique else None
+
+
 def render_get_env(
     api_key: str,
     service_id: str,
@@ -167,9 +207,32 @@ def refresh_refresh_token(
 def main() -> int:
     api_key = (os.environ.get("RENDER_API_KEY") or "").strip()
     service_id = (os.environ.get("RENDER_SERVICE_ID") or "").strip()
-    if not api_key or not service_id:
-        print("缺少 RENDER_API_KEY 或 RENDER_SERVICE_ID。", file=sys.stderr)
+    service_name = (
+        os.environ.get("RENDER_SERVICE_NAME") or "worshipppt"
+    ).strip() or "worshipppt"
+    if not api_key:
+        print("缺少 RENDER_API_KEY。", file=sys.stderr)
         return 2
+
+    try:
+        resolved = render_find_service(api_key, service_name)
+        if resolved:
+            service_id = resolved
+            print(f"Render service: {service_name} ({service_id})")
+        elif not service_id:
+            print(
+                f"Render 中找不到名为 {service_name} 的 Web Service，"
+                "请确认 API key 所属账号和 RENDER_SERVICE_ID。",
+                file=sys.stderr,
+            )
+            return 2
+    except RenewError as exc:
+        print(
+            f"无法按名称查找 Render 服务（{exc}）；尝试使用 RENDER_SERVICE_ID。",
+            file=sys.stderr,
+        )
+        if not service_id:
+            return 2
 
     try:
         client_id = render_get_env(api_key, service_id, "ONEDRIVE_CLIENT_ID")

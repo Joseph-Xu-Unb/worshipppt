@@ -285,7 +285,11 @@ Setup:
 2. In GitHub, open the repository → **Settings → Secrets and variables → Actions**
    and add:
    - `RENDER_API_KEY`: the Render API key from step 1.
-   - `RENDER_SERVICE_ID`: `srv-d8cr4gmgvtc73b8v7lg` (the `worshipppt` service ID).
+   - Optional `RENDER_SERVICE_ID`: a fallback if automatic lookup finds more than one
+     `worshipppt` service. The script resolves the service by name first.
+
+   The Render API key must belong to the account/workspace that owns the
+   `worshipppt` service. A key from another account sees a 404 for this service.
 3. Open **Actions → Renew OneDrive refresh token → Run workflow** to run it once
    manually and confirm it succeeds. The monthly schedule then keeps it fresh.
 

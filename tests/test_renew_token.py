@@ -64,6 +64,62 @@ class RenderEnvTests(unittest.TestCase):
         self.assertIn("/services/srv-123/env-vars/", opener.requests[0].full_url)
         self.assertIn("Bearer api-key", opener.requests[0].get_header("Authorization"))
 
+    def test_find_service_by_name(self):
+        opener = FakeOpener(
+            [
+                FakeResponse(
+                    [
+                        {
+                            "service": {
+                                "id": "srv-1",
+                                "name": "worshipppt",
+                                "type": "web_service",
+                            }
+                        },
+                        {
+                            "service": {
+                                "id": "srv-2",
+                                "name": "other",
+                                "type": "web_service",
+                            }
+                        },
+                    ]
+                )
+            ]
+        )
+        service_id = renew.render_find_service(
+            "api-key", "worshipppt", opener=opener
+        )
+        self.assertEqual(service_id, "srv-1")
+        self.assertIn("/services?limit=100", opener.requests[0].full_url)
+
+    def test_find_service_missing_and_ambiguous(self):
+        self.assertIsNone(
+            renew.render_find_service(
+                "api-key", opener=FakeOpener([FakeResponse([])])
+            )
+        )
+        duplicate = [
+            {
+                "service": {
+                    "id": "srv-1",
+                    "name": "worshipppt",
+                    "type": "web_service",
+                }
+            },
+            {
+                "service": {
+                    "id": "srv-2",
+                    "name": "worshipppt",
+                    "type": "web_service",
+                }
+            },
+        ]
+        with self.assertRaises(renew.RenewError):
+            renew.render_find_service(
+                "api-key", opener=FakeOpener([FakeResponse(duplicate)])
+            )
+
     def test_get_env_can_be_optional(self):
         self.assertIsNone(
             renew.render_get_env(
