@@ -9,10 +9,15 @@ from datetime import date
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
+from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Pt
 
 from src.backend.content import section_pages, split_lines
+
+DATE_TEXT_RE = re.compile(
+    r"\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日|\d{4}-\d{2}-\d{2}"
+)
 
 logging.basicConfig(
     filename="worship_ppt.log",
@@ -218,7 +223,17 @@ class WorshipPPTGenerator:
             if layout.name in layout_rename_map:
                 layout.name = layout_rename_map[layout.name]
 
+    def _sermon_info(self):
+        """Return (title, speaker), with the historical title as fallback."""
+        sermon = self.data.get("sermon")
+        if not isinstance(sermon, dict):
+            sermon = {}
+        title = str(sermon.get("title") or "").strip() or "绝境逢生"
+        speaker = str(sermon.get("speaker") or "").strip()
+        return title, speaker
+
     def _build_order_text(self):
+        sermon_title, _ = self._sermon_info()
         raw_items = [
             f"宣召经文  {self.data['call_to_worship']['title']}",
             "赞美祷告  Prayer",
@@ -231,7 +246,7 @@ class WorshipPPTGenerator:
             [
                 "认罪祷告  Prayer",
                 f"主题经文  {self.data['theme_scripture']['title']}",
-                "讲道  Preaching",
+                f"讲道  {sermon_title}",
                 f"回应诗  {self.data['response_hymn']['title']}",
                 "奉献  Offering",
                 "主祷文  The Lord's Prayer",
@@ -242,6 +257,79 @@ class WorshipPPTGenerator:
             ]
         )
         return "\n".join(raw_items)
+
+    @staticmethod
+    def _format_cover_date(value):
+        """Return the cover date in the template's Chinese display format."""
+        if isinstance(value, date):
+            selected = value
+        else:
+            raw = str(value).strip()
+            try:
+                selected = date.fromisoformat(raw)
+            except ValueError:
+                return raw
+        return f"{selected.year}年 {selected.month}月{selected.day}日"
+
+    @staticmethod
+    def _find_cover_date_placeholder(slide):
+        """Find the cover subtitle/date placeholder.
+
+        The bundled template stores the date in the subtitle placeholder
+        (idx 1), not in a title placeholder, so checking only
+        ``slide.shapes.title`` silently leaves the old template date in place.
+        """
+        placeholders = list(slide.placeholders)
+        for placeholder in placeholders:
+            if placeholder.placeholder_format.idx == 1:
+                return placeholder
+        for placeholder in placeholders:
+            if placeholder.placeholder_format.type == PP_PLACEHOLDER.SUBTITLE:
+                return placeholder
+        for placeholder in placeholders:
+            if placeholder.has_text_frame and DATE_TEXT_RE.search(
+                placeholder.text
+            ):
+                return placeholder
+        return None
+
+    @classmethod
+    def _set_cover_date(cls, shape, value):
+        """Set the cover date while preserving the placeholder's run styling."""
+        date_text = cls._format_cover_date(value)
+        text_frame = shape.text_frame
+        if not text_frame.paragraphs:
+            return
+
+        paragraph = text_frame.paragraphs[0]
+        runs = list(paragraph.runs)
+        if isinstance(value, date):
+            selected = value
+        else:
+            try:
+                selected = date.fromisoformat(str(value).strip())
+            except ValueError:
+                selected = None
+
+        # The template's subtitle is split into year/month/day runs so Chinese
+        # and numeric characters keep their language formatting.
+        if selected is not None and len(runs) >= 6:
+            runs[0].text = str(selected.year)
+            runs[1].text = "年 "
+            runs[2].text = str(selected.month)
+            runs[3].text = "月"
+            runs[4].text = str(selected.day)
+            runs[5].text = "日"
+            for run in runs[6:]:
+                run._r.getparent().remove(run._r)
+            return
+
+        if runs:
+            runs[0].text = date_text
+            for run in runs[1:]:
+                run._r.getparent().remove(run._r)
+        else:
+            paragraph.text = date_text
 
     def _add_cover(self):
         cover_slide = next(
@@ -258,13 +346,19 @@ class WorshipPPTGenerator:
         if not cover_slide or not self.selected_date:
             return
 
+        date_placeholder = self._find_cover_date_placeholder(cover_slide)
+        if date_placeholder is not None:
+            self._set_cover_date(date_placeholder, self.selected_date)
+            return
+
+        date_text = self._format_cover_date(self.selected_date)
         if cover_slide.shapes.title:
             title_text = cover_slide.shapes.title.text or ""
-            if self.selected_date not in title_text:
-                cover_slide.shapes.title.text = f"{title_text}\n{self.selected_date}"
+            if date_text not in title_text:
+                cover_slide.shapes.title.text = f"{title_text}\n{date_text}"
         else:
             self._safe_fill(
-                cover_slide, self.selected_date, self.TITLE_PLACEHOLDER_IDXS
+                cover_slide, date_text, self.TITLE_PLACEHOLDER_IDXS
             )
 
     def _add_opening_slides(self):
@@ -314,8 +408,27 @@ class WorshipPPTGenerator:
 
     def _add_sermon_slide(self):
         s_slide = self._add_layout_slide("sermon")
-        if s_slide and s_slide.shapes.title:
-            s_slide.shapes.title.text = "讲道：绝境逢生"
+        if not s_slide:
+            return
+
+        title, speaker = self._sermon_info()
+        lines = [f"讲道题目：{title}"]
+        if speaker:
+            lines.extend([" ", f"             讲员：{speaker}"])
+
+        body_shape = next(
+            (
+                placeholder
+                for placeholder in s_slide.placeholders
+                if placeholder.placeholder_format.idx
+                in self.BODY_PLACEHOLDER_IDXS
+            ),
+            None,
+        )
+        if body_shape is not None:
+            body_shape.text = "\n".join(lines)
+        elif s_slide.shapes.title:
+            s_slide.shapes.title.text = f"讲道：{title}"
 
     def _add_response_hymn(self):
         if self._add_edited_slides("response_hymn", "response"):

@@ -22,7 +22,7 @@ export function MuseGuide() {
         <h3>1. 复制教会群消息</h3>
         <p className="resource-copy">
           从微信或 WhatsApp 教会群复制本次崇拜的筹备消息，包括后续更正。
-          请包含<strong>聚会日期、经文出处、诗歌名称和完整歌词</strong>，以及诗歌顺序。
+          请包含<strong>聚会日期、经文出处、讲道题目、讲员姓名（如有）、诗歌名称和完整歌词</strong>，以及诗歌顺序。
           歌词若在图片或附件里，也请一起发给 Muse。
         </p>
         <p className="guide-note">

@@ -412,6 +412,10 @@ The JSON file must contain these top-level sections:
       "Response line 1",
       "Response line 2"
     ]
+  },
+  "sermon": {
+    "title": "Sermon title",
+    "speaker": "Speaker name"
   }
 }
 ```
@@ -422,6 +426,10 @@ Notes:
 - `lines` is a list of strings.
 - Blank strings in `lines` are ignored when the script splits text across slides.
 - `hymns` can contain multiple hymn objects.
+- `sermon` is optional. `sermon.title` fills the sermon slide and the worship-order
+  line; `sermon.speaker` adds the speaker line. If `sermon.title` is omitted, the
+  generator falls back to the historical title `绝境逢生`. If `speaker` is empty,
+  the speaker line is omitted. Muse extracts these from the group chat when present.
 
 ## Project Folders
 

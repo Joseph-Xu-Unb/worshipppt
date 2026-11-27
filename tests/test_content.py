@@ -209,6 +209,104 @@ class PaginationTests(unittest.TestCase):
 
             self.assertEqual(hymn_page_texts, ["1/2", "2/2", "1/1", "1/2", "2/2"])
 
+    def test_cover_date_is_written_to_subtitle_placeholder(self):
+        from src.backend.worship import generate_worship_ppt
+
+        for selected, expected in (
+            ("2026-11-29", "2026年 11月29日"),
+            ("2026-05-03", "2026年 5月3日"),
+            ("2026年 12月6日", "2026年 12月6日"),
+        ):
+            with self.subTest(selected=selected):
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "test_cover.pptx"
+                    generate_worship_ppt(
+                        str(ROOT / "data/template.pptx"),
+                        get_sample_worship_data(),
+                        str(output),
+                        selected,
+                    )
+                    cover = Presentation(output).slides[0]
+                    self.assertEqual(cover.slide_layout.name, "cover")
+                    date_placeholder = next(
+                        placeholder
+                        for placeholder in cover.placeholders
+                        if placeholder.placeholder_format.idx == 1
+                    )
+                    self.assertEqual(
+                        date_placeholder.text.strip(), expected
+                    )
+                    self.assertNotIn("01月25日", date_placeholder.text)
+
+    def test_sermon_slide_and_order_use_sermon_title(self):
+        from src.backend.worship import generate_worship_ppt
+
+        data = copy.deepcopy(get_sample_worship_data())
+        data["sermon"] = {"title": "测试讲道", "speaker": "测试讲员"}
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "test_sermon.pptx"
+            generate_worship_ppt(
+                str(ROOT / "data/template.pptx"),
+                data,
+                str(output),
+                "2026-11-29",
+            )
+            prs = Presentation(output)
+            sermon = next(
+                slide
+                for slide in prs.slides
+                if slide.slide_layout.name == "sermon"
+            )
+            sermon_text = "\n".join(
+                shape.text
+                for shape in sermon.shapes
+                if shape.has_text_frame
+            )
+            self.assertIn("讲道题目：测试讲道", sermon_text)
+            self.assertIn("讲员：测试讲员", sermon_text)
+
+            order = next(
+                slide
+                for slide in prs.slides
+                if slide.slide_layout.name == "order"
+            )
+            order_text = "\n".join(
+                shape.text for shape in order.shapes if shape.has_text_frame
+            )
+            self.assertIn("讲道  测试讲道", order_text)
+
+    def test_sermon_title_falls_back_when_section_is_missing(self):
+        from src.backend.worship import generate_worship_ppt
+
+        data = copy.deepcopy(get_sample_worship_data())
+        data.pop("sermon", None)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "test_sermon_fallback.pptx"
+            generate_worship_ppt(
+                str(ROOT / "data/template.pptx"),
+                data,
+                str(output),
+                "2026-11-29",
+            )
+            sermon = next(
+                slide
+                for slide in Presentation(output).slides
+                if slide.slide_layout.name == "sermon"
+            )
+            sermon_text = "\n".join(
+                shape.text
+                for shape in sermon.shapes
+                if shape.has_text_frame
+            )
+            self.assertIn("讲道题目：绝境逢生", sermon_text)
+
+    def test_sermon_section_validation(self):
+        data = copy.deepcopy(get_sample_worship_data())
+        data["sermon"] = "bad"
+        self.assertIsNotNone(_validate_data(data))
+        data["sermon"] = {"title": 3}
+        self.assertIsNotNone(_validate_data(data))
+
 
 class MattersCopyTests(unittest.TestCase):
     PNG_1PX = (

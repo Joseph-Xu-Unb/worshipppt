@@ -261,6 +261,14 @@ def _validate_data(data):
         if error:
             return error
 
+    sermon = data.get("sermon")
+    if sermon is not None:
+        if not isinstance(sermon, dict):
+            return "sermon must be an object."
+        for key in ("title", "speaker"):
+            if key in sermon and not isinstance(sermon[key], str):
+                return f"sermon.{key} must be a string."
+
     return None
 
 
