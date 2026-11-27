@@ -450,14 +450,18 @@ The web app includes an assistant guide at `/guide/muse`. It allows church volun
 1. Extract dates, scriptures, and hymns from group messages.
 2. Retrieve complete lyrics from the church's OneDrive lyric library.
 3. Automatically validate and generate the presentation via the MCP server (`/mcp/`).
-4. When OneDrive is configured, the server automatically reads the strictly previous
-   Sunday's `<YYYY-MM-DD>.pptx` from the church archive, copies the
-   announcements ("matters") slides (including pictures, tables, grouped shapes,
-   charts, and embedded chart data), writes the new deck back as
-   `<service-date>.pptx`, and returns `uploaded_share_url`. The agent presents that
-   link to the user. Explicit `last_week_pptx_url`/`last_week_pptx_base64` still
-   overrides automatic retrieval. If an older template has no recognizable matters
-   layout, the response lists candidate slides and the agent retries with
+4. Before generating, the Muse prompt asks the user two questions: whether to copy
+   last week's matters page and whether to write the new deck back to OneDrive. The
+   agent passes `use_onedrive` and `upload_to_onedrive` explicitly. If copying is
+   accepted, the server reads the strictly previous Sunday's `<YYYY-MM-DD>.pptx` from
+   the church archive, copies the announcements ("matters") slides (including
+   pictures, tables, grouped shapes, charts, and embedded chart data), and if
+   write-back is accepted, writes the new deck as `<service-date>.pptx` and returns
+   `uploaded_share_url`. If copying is declined, matters stays blank with no manual
+   reminder; if write-back is declined, no upload occurs and the agent returns the
+   downloadable file. Explicit `last_week_pptx_url`/`last_week_pptx_base64` still
+   override retrieval. If an older template has no recognizable matters layout, the
+   response lists candidate slides and the agent retries with
    `last_week_slide_numbers`; if the date is ambiguous, it retries with
    `last_week_filename`.
 
@@ -481,10 +485,14 @@ Available tools:
   - Automatic mode resolves the archived `<previous-Sunday>.pptx`, copies its
     matters slides, writes the final deck back as `<service-date>.pptx`, and
     creates an anonymous view link. It returns `last_week_source`,
-    `last_week_filename`, `auto_last_week_attempted`, `auto_last_week_error`,
-    `last_week_archive_candidates`, `uploaded_to_onedrive`, `uploaded_filename`,
-    `uploaded_web_url`, `uploaded_view_url`, `uploaded_share_url`, and
-    `upload_error`, in addition to the existing fields. `uploaded_share_url` adds
+    `last_week_filename`, `auto_last_week_attempted`, `auto_last_week_declined`,
+    `auto_last_week_error`, `last_week_archive_candidates`, `uploaded_to_onedrive`,
+    `uploaded_filename`, `uploaded_web_url`, `uploaded_view_url`,
+    `uploaded_share_url`, and `upload_error`, in addition to the existing fields.
+    Interactive clients should ask the user whether to copy last week's matters and
+    whether to write back, then pass `use_onedrive` and `upload_to_onedrive`
+    explicitly. `use_onedrive=false` leaves matters blank without a manual reminder;
+    `upload_to_onedrive=false` skips the upload and returns the deck as base64. `uploaded_share_url` adds
     `download=1` to the anonymous link so it downloads the PPTX without a sign-in;
     `uploaded_view_url` may require a Microsoft sign-in.
   - Explicit `last_week_pptx_url`/`last_week_pptx_base64` (or a REST upload)

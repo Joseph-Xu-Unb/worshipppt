@@ -101,6 +101,21 @@ class AutoGenerationTests(unittest.TestCase):
         ]
         self.assertIn("LAST_WEEK_MATTERS", texts)
 
+    def test_declining_copy_leaves_matters_blank_without_manual_reminder(self):
+        result = generate_worship_powerpoint(
+            get_sample_worship_data(),
+            "2026-11-29",
+            use_onedrive=False,
+            upload_to_onedrive=False,
+        )
+        self.assertFalse(result["matters_copied"])
+        self.assertEqual(result["last_week_source"], "none")
+        self.assertTrue(result["auto_last_week_declined"])
+        self.assertIn("不复制", result["reminder"])
+        self.assertFalse(
+            any("1drv.ms" in warning for warning in result["warnings"])
+        )
+
     def test_auto_failure_still_returns_valid_deck(self):
         with patch(
             "src.backend.onedrive.auto_last_week_pptx",

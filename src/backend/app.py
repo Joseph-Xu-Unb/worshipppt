@@ -144,6 +144,10 @@ MCP_INSTRUCTIONS = (
     "After a successful generation, present uploaded_share_url to the user; it is a no-login "
     "download=1 link that downloads the PPTX directly. uploaded_view_url may require a Microsoft sign-in. "
     "Do not ask the user to visit OneDrive or use browser download history when automatic mode succeeds.\n"
+    "INTERACTIVE CLIENTS: before generating, ask the user (1) whether to copy last week's matters slide "
+    "and (2) whether to write the new deck back to OneDrive. Pass use_onedrive and upload_to_onedrive "
+    "explicitly from their answers. If the user declines copying, matters stays blank and no manual reminder "
+    "is needed. If the user declines write-back, do not upload; return the pptx_base64 file instead.\n"
     "If the response has last_week_archive_candidates or auto_last_week_error, choose a filename and retry "
     "with last_week_filename=\"...\", or provide an explicit last_week_pptx_url/last_week_pptx_base64. "
     "If matters_candidates is returned for an older template, retry with last_week_slide_numbers=[...]. "
@@ -265,6 +269,7 @@ class LastWeekSelection:
     filename: str = ""
     explicit: bool = False
     auto_attempted: bool = False
+    auto_declined: bool = False
     auto_error: str = ""
     archive_candidates: list[dict] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -321,7 +326,7 @@ def _resolve_last_week_selection(
             explicit=True,
         )
     if not auto_last_week:
-        return LastWeekSelection()
+        return LastWeekSelection(auto_declined=True)
 
     result = onedrive.auto_last_week_pptx(
         service_date, filename=archive_filename
@@ -437,6 +442,9 @@ def _build_result_text(
                 if selection.source == "onedrive"
                 else MATTERS_NO_CANDIDATES_PROMPT
             )
+    elif selection.auto_declined:
+        reminder = "已按你的选择不复制上周 PPT；事项汇报页保持空白。"
+        post_generation_prompt = ""
     elif selection.auto_attempted:
         message = AUTO_LAST_WEEK_REMINDER.format(
             error=selection.auto_error or "没有找到唯一的上周文件"
@@ -469,6 +477,7 @@ def _last_week_metadata(selection: LastWeekSelection) -> str:
             "source": selection.source,
             "filename": selection.filename,
             "auto_attempted": selection.auto_attempted,
+            "auto_declined": selection.auto_declined,
             "auto_error": selection.auto_error,
             "candidates": selection.archive_candidates,
         },
@@ -559,6 +568,12 @@ def generate_worship_powerpoint(
 
     If automatic mode is unavailable, the response includes manual-copy
     instructions and the browser-download-history fallback.
+
+    Interactive clients should first ask whether to copy last week's matters and
+    whether to write the new deck back, then pass use_onedrive and
+    upload_to_onedrive explicitly. use_onedrive=False leaves the matters slide
+    blank without a manual-copy reminder. upload_to_onedrive=False returns the
+    deck only as base64/HTTP download and does not upload it.
     """
     error = _validate_data(data)
     if error:
@@ -599,6 +614,7 @@ def generate_worship_powerpoint(
         "last_week_source": selection.source,
         "last_week_filename": selection.filename,
         "auto_last_week_attempted": selection.auto_attempted,
+        "auto_last_week_declined": selection.auto_declined,
         "auto_last_week_error": selection.auto_error,
         "last_week_archive_candidates": selection.archive_candidates,
         "uploaded_to_onedrive": bool(upload.get("uploaded")),

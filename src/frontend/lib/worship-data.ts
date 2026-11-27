@@ -43,6 +43,7 @@ export type LastWeekMetadata = {
   source: "none" | "upload" | "base64" | "url" | "onedrive" | string;
   filename: string;
   auto_attempted: boolean;
+  auto_declined?: boolean;
   auto_error: string;
   candidates: LastWeekCandidate[];
 };

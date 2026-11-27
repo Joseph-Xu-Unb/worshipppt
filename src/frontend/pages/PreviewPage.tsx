@@ -11,6 +11,7 @@ export function PreviewPage() {
     result,
     preview,
     isGenerating,
+    uploadToOneDrive,
     generatePpt,
     updatePreviewSlide,
     deletePreviewSlide,
@@ -118,6 +119,12 @@ export function PreviewPage() {
           )}
           {result.upload?.error && (
             <span>OneDrive 写回失败：{result.upload.error}</span>
+          )}
+          {result.lastWeek?.auto_declined && result.mattersCopied === 0 && (
+            <span>已按选择不复制上周事项汇报。</span>
+          )}
+          {!uploadToOneDrive && (
+            <span>已按选择不写回 OneDrive。</span>
           )}
           {result.lastWeek?.auto_error && (
             <span>自动读取 OneDrive 失败：{result.lastWeek.auto_error}</span>
