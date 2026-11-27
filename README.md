@@ -265,11 +265,39 @@ Optional variables:
 
 ### Token renewal
 
-Refresh tokens last about 90 days. Re-run the login script and update the Render
-variables before day 90. `/api/onedrive/status` reports `token_age_days` and
-`token_status` (`ok`, `renew_soon`, `expired`). On Render's free plan there is no
-persistent disk, so rotated tokens are kept in memory only and the environment
-variable remains the seed.
+Refresh tokens last about 90 days. `/api/onedrive/status` reports `token_age_days`
+and `token_status` (`ok`, `renew_soon`, `expired`). On Render's free plan there is
+no persistent disk, so rotated tokens are kept in memory only and the environment
+variable remains the seed unless you enable the GitHub Actions workflow below.
+
+#### Automatic renewal with GitHub Actions
+
+The workflow `.github/workflows/renew-onedrive-token.yml` runs monthly and can be
+started manually from the Actions tab. It reads the current
+`ONEDRIVE_CLIENT_ID`, `ONEDRIVE_TENANT_ID`, `ONEDRIVE_SCOPE`, and
+`ONEDRIVE_REFRESH_TOKEN` from Render, refreshes the Microsoft token, and writes the
+new refresh token plus `ONEDRIVE_TOKEN_ISSUED_AT` back to Render. **No Microsoft
+token is stored in GitHub.**
+
+Setup:
+
+1. In Render, open **Account Settings → API Keys** and create a key. Copy it once.
+2. In GitHub, open the repository → **Settings → Secrets and variables → Actions**
+   and add:
+   - `RENDER_API_KEY`: the Render API key from step 1.
+   - `RENDER_SERVICE_ID`: `srv-d8cr4gmgvtc73b8v7lg` (the `worshipppt` service ID).
+3. Open **Actions → Renew OneDrive refresh token → Run workflow** to run it once
+   manually and confirm it succeeds. The monthly schedule then keeps it fresh.
+
+The workflow uses `scripts/renew_onedrive_token.py`, which only updates those two
+Render variables via the single-variable API. It prints statuses, never token
+values. If it fails with `invalid_grant`, the refresh token was revoked or expired:
+run `onedrive_login.py` again, update Render, and the next workflow run will use the
+new seed. On Render's free plan, the next cold start picks up the updated Render
+environment; an always-on paid service should be redeployed after the token update.
+
+GitHub Actions usage for this monthly job is negligible; public repositories do not
+consume paid minutes.
 
 ### Behavior and file naming
 
