@@ -1,0 +1,39 @@
+name: Renew OneDrive refresh token
+
+# Monthly + manual. The workflow reads the current OneDrive configuration from
+# Render, refreshes the Microsoft token, and writes the new refresh token back
+# to Render. Only these two repository secrets are required:
+#   RENDER_API_KEY
+#   RENDER_SERVICE_ID
+# The OneDrive client ID, tenant, scope, and refresh token stay in Render.
+
+on:
+  schedule:
+    - cron: "0 3 1 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: renew-onedrive-token
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Refresh token and update Render
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: python scripts/renew_onedrive_token.py
